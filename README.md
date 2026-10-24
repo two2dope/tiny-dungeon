@@ -80,7 +80,19 @@ Inicie o servidor de desenvolvimento local:
 ```bash
 npm run dev
 ```
-Acesse: [http://localhost:5173/](http://localhost:5173/)
+- **Jogo Principal (3D WebGL + HUD):** [http://localhost:5173/](http://localhost:5173/)
+- **Hero Showcase Landing Page:** [http://localhost:5173/hero.html](http://localhost:5173/hero.html)
+
+---
+
+## 🎨 Hero Showcase & Identidade Visual
+
+O projeto inclui uma **Hero Landing Page** dedicada ([`hero.html`](hero.html)) criada para demonstrar o universo do jogo no GitHub e na web com diretrizes modernas:
+- **Estética Vesperfall (ref-c):** Paleta *luxury dark* com fundos de obsidiana (`#08090c`), tochas vivas em âmbar (`#ff6b35`) e detalhes em ouro imperial (`#d4af37`).
+- **Performance Web (Modern Web Guidance):** Carregamento prioritário de Largest Contentful Paint (`fetchpriority="high"`) e deferimento de mídias secundárias (`loading="lazy"`).
+- **Refinamento Háptico (Make Interfaces Feel Better):** Micro-interações táteis nos botões (`active:scale-[0.97]`), quebras balanceadas de texto (`text-wrap: balance` e `text-wrap: pretty`) e sombras atmosféricas sobrepostas.
+
+---
 
 ### Executar Testes Automatizados
 Roda toda a suíte de testes unitários e de integração com Vitest:
