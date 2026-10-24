@@ -1,6 +1,6 @@
 # Tiny Dungeon Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Build *Tiny Dungeon*, an atmospheric single-player webapp game faithfully adapting the *Paper Dungeons* roll-and-write board game with a 3D isometric low-poly aesthetic and luxury dark UI inspired by *ref-c* (Vesperfall).
 
@@ -44,7 +44,7 @@
 - Consumes: Node.js / Vite build environment
 - Produces: Runnable development server (`npm run dev`) and test runner (`npm run test`)
 
-- [ ] **Step 1: Write the failing smoke test**
+- [x] **Step 1: Write the failing smoke test**
 
 ```typescript
 // tests/smoke.test.ts
@@ -58,21 +58,21 @@ describe('Project Environment', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/smoke.test.ts`  
 Expected: FAIL or command not found prior to install.
 
-- [ ] **Step 3: Setup project configurations and install dependencies**
+- [x] **Step 3: Setup project configurations and install dependencies**
 
 Install: `react`, `react-dom`, `three`, `@react-three/fiber`, `@react-three/drei`, `zustand`, `lucide-react`, `tailwindcss`, `vite`, `vitest`, `typescript`. Configure `vite.config.ts` with React plugin and alias `@engine` -> `src/engine`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/smoke.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add package.json vite.config.ts tsconfig.json tailwind.config.js index.html src/ tests/
@@ -92,7 +92,7 @@ git commit -m "feat: project scaffolding with React 19, R3F, Tailwind, and Vites
 - Consumes: None (Root engine models)
 - Produces: `Die`, `DieSymbol`, `DicePool`, `rollDicePool()`, `checkHazardPhase()`, `draftDie()`
 
-- [ ] **Step 1: Write the failing unit tests for dice rolling and drafting**
+- [x] **Step 1: Write the failing unit tests for dice rolling and drafting**
 
 ```typescript
 // tests/engine/dice.test.ts
@@ -133,21 +133,21 @@ describe('Dice System', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/engine/dice.test.ts`  
 Expected: FAIL with `rollDicePool is not defined`.
 
-- [ ] **Step 3: Implement domain types and dice module in `src/engine/`**
+- [x] **Step 3: Implement domain types and dice module in `src/engine/`**
 
 Define `DieSymbol` ('boot' | 'sword' | 'magic' | 'rogue' | 'shield' | 'skull'), `DieColor` ('white' | 'black'), `Die` entity, and pure functions `rollDicePool(rng?)`, `checkHazardPhase(pool)`, and `draftDie(pool, dieId)`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/engine/dice.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/engine/types.ts src/engine/dice.ts tests/engine/dice.test.ts
@@ -166,7 +166,7 @@ git commit -m "feat(engine): add types and dice drafting system with hazard chec
 - Consumes: `src/engine/types.ts`
 - Produces: `HeroParty`, `createInitialParty()`, `levelUpHero()`, `applyPartyDamage()`, `brewPotion()`, `craftItem()`
 
-- [ ] **Step 1: Write the failing tests for hero progression and resurrection penalty**
+- [x] **Step 1: Write the failing tests for hero progression and resurrection penalty**
 
 ```typescript
 // tests/engine/heroes.test.ts
@@ -199,21 +199,21 @@ describe('Hero Party System', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/engine/heroes.test.ts`  
 Expected: FAIL with `createInitialParty is not defined`.
 
-- [ ] **Step 3: Implement party tracking, level thresholds, and resurrection recovery in `src/engine/heroes.ts`**
+- [x] **Step 3: Implement party tracking, level thresholds, and resurrection recovery in `src/engine/heroes.ts`**
 
 Implement `createInitialParty()`, `levelUpHero(party, classType)`, `applyPartyDamage(party, amount)` (with resurrection penalty counter), and inventory state.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/engine/heroes.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/engine/heroes.ts tests/engine/heroes.test.ts
@@ -232,7 +232,7 @@ git commit -m "feat(engine): add 4-hero party progression and resurrection penal
 - Consumes: `src/engine/types.ts`
 - Produces: `DungeonMap`, `getCanonicalMap1()`, `getValidMoves()`, `executeMove()`
 
-- [ ] **Step 1: Write the failing tests for dungeon movement and wall blocking**
+- [x] **Step 1: Write the failing tests for dungeon movement and wall blocking**
 
 ```typescript
 // tests/engine/dungeon.test.ts
@@ -266,21 +266,21 @@ describe('Dungeon Navigation', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/engine/dungeon.test.ts`  
 Expected: FAIL with `getCanonicalMap1 is not defined`.
 
-- [ ] **Step 3: Implement Map 1 layout, wall matrix, and BFS move validator in `src/engine/dungeon.ts`**
+- [x] **Step 3: Implement Map 1 layout, wall matrix, and BFS move validator in `src/engine/dungeon.ts`**
 
 Define room grid (4x4 matrix with corridors, walls, boss rooms at B3, D2, D4), adjacency graph, and step validator.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/engine/dungeon.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/engine/dungeon.ts tests/engine/dungeon.test.ts
@@ -301,7 +301,7 @@ git commit -m "feat(engine): add canonical Map 1 and adjacency movement validato
 - Consumes: `src/engine/heroes.ts`, `src/engine/dungeon.ts`
 - Produces: `resolveMinionEncounter()`, `resolveVillainBattle()`, `calculateFinalGloryScore()`
 
-- [ ] **Step 1: Write the failing tests for minion battle, boss resolution, and scoring**
+- [x] **Step 1: Write the failing tests for minion battle, boss resolution, and scoring**
 
 ```typescript
 // tests/engine/combat.test.ts & tests/engine/scoring.test.ts
@@ -334,21 +334,21 @@ describe('Combat and Scoring', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/engine/combat.test.ts tests/engine/scoring.test.ts`  
 Expected: FAIL with functions not defined.
 
-- [ ] **Step 3: Implement combat resolvers and scoring tally in `src/engine/`**
+- [x] **Step 3: Implement combat resolvers and scoring tally in `src/engine/`**
 
 Write `combat.ts` (solo threshold table for villains at rounds 3, 6, 8) and `scoring.ts` (comprehensive glory sheet calculator).
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/engine/combat.test.ts tests/engine/scoring.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/engine/combat.ts src/engine/scoring.ts tests/engine/combat.test.ts tests/engine/scoring.test.ts
@@ -367,7 +367,7 @@ git commit -m "feat(engine): add combat resolution and final glory scoring calcu
 - Consumes: All `src/engine/*` modules
 - Produces: `useGameStore`, `stageDiceAction()`, `undoAction()`, `redoAction()`, `confirmRound()`
 
-- [ ] **Step 1: Write the failing tests for turn staging, undo/redo, and round advancement**
+- [x] **Step 1: Write the failing tests for turn staging, undo/redo, and round advancement**
 
 ```typescript
 // tests/store/gameStore.test.ts
@@ -403,21 +403,21 @@ describe('Game Store Machine', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/store/gameStore.test.ts`  
 Expected: FAIL with `useGameStore is not defined`.
 
-- [ ] **Step 3: Implement Zustand store with intra-round action stack and LocalStorage adapter**
+- [x] **Step 3: Implement Zustand store with intra-round action stack and LocalStorage adapter**
 
 Implement `src/store/gameStore.ts` with action history for undo/redo within the active round and automatic serialization on `confirmRound()`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/store/gameStore.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/store/gameStore.ts tests/store/gameStore.test.ts
@@ -440,7 +440,7 @@ git commit -m "feat(store): add Zustand state machine with intra-round undo/redo
 - Consumes: `useGameStore`
 - Produces: 3D Isometric WebGL scene rendered within the viewport
 
-- [ ] **Step 1: Write component smoke test for DungeonCanvas**
+- [x] **Step 1: Write component smoke test for DungeonCanvas**
 
 ```typescript
 // tests/components/DungeonCanvas.test.tsx
@@ -457,21 +457,21 @@ describe('DungeonCanvas Component', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/components/DungeonCanvas.test.tsx`  
 Expected: FAIL with component not found.
 
-- [ ] **Step 3: Implement 3D low-poly procedural dungeon scene in R3F**
+- [x] **Step 3: Implement 3D low-poly procedural dungeon scene in R3F**
 
 Build `DungeonCanvas.tsx` with an `OrthographicCamera` configured for isometric projection, `RoomTile3D.tsx` with beveled edges and room content markers (gems, minions, boss gates), `Walls3D.tsx` for perimeter and interior walls, `TorchLight.tsx` with procedural flicker, and `PartyPawn3D.tsx` with glowing position ring.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/components/DungeonCanvas.test.tsx`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/canvas/ tests/components/DungeonCanvas.test.tsx src/App.tsx
@@ -494,7 +494,7 @@ git commit -m "feat(graphics): implement 3D isometric dungeon scene with R3F and
 - Consumes: `useGameStore`
 - Produces: Interactive HTML/Tailwind UI overlay on top of the 3D scene
 
-- [ ] **Step 1: Write unit tests for HUD and Ember Ledger interactions**
+- [x] **Step 1: Write unit tests for HUD and Ember Ledger interactions**
 
 ```typescript
 // tests/components/UI.test.tsx
@@ -514,21 +514,21 @@ describe('DiceTray Component', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/components/UI.test.tsx`  
 Expected: FAIL with components not found.
 
-- [ ] **Step 3: Implement dark luxury HUD, Ember Ledger, and Dice Tray**
+- [x] **Step 3: Implement dark luxury HUD, Ember Ledger, and Dice Tray**
 
 Style components using Tailwind with dark background (`#0d0e12`), serif fonts (Cinzel/Playfair), glowing copper accents, interactive 3-dice drafting drawer, collapsible "The Ember Measure" hero ledger (showing the 4 classes and leveling buttons), Undo/Redo action bar, and game log.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/components/UI.test.tsx`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/components/ui/ tests/components/UI.test.tsx src/App.tsx
@@ -547,7 +547,7 @@ git commit -m "feat(ui): add dark luxury HUD, Ember Measure hero ledger, and dic
 - Consumes: All UI, 3D Canvas, and GameStore systems
 - Produces: Fully integrated, playable 8-round game
 
-- [ ] **Step 1: Write comprehensive end-to-end game loop test**
+- [x] **Step 1: Write comprehensive end-to-end game loop test**
 
 ```typescript
 // tests/integration/gameLoop.test.ts
@@ -576,21 +576,21 @@ describe('End-to-End Game Loop', () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run tests/integration/gameLoop.test.ts`  
 Expected: FAIL if full loop or game-over state is incomplete.
 
-- [ ] **Step 3: Connect game loop triggers, round transitions, and victory certificate**
+- [x] **Step 3: Connect game loop triggers, round transitions, and victory certificate**
 
 Wire round ending triggers, boss battles at rounds 3, 6, and 8, and display the final score tally modal with glory breakdown.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `npx vitest run tests/integration/gameLoop.test.ts`  
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/ tests/integration/gameLoop.test.ts
