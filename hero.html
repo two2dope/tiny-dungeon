@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tiny Dungeon — The Ember Measure | Roll & Write Isométrico 3D</title>
+  <meta name="description" content="Uma adaptação atmosférica e tática de Paper Dungeons com estética 3D isométrica dark fantasy, iluminação por tochas e o grimório The Ember Measure.">
+  
+  <!-- Google Fonts: Cinzel, Cormorant Garamond, Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS CDN for Standalone Hero Showcase -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            void: '#08090c',
+            obsidian: '#0e1017',
+            card: '#151822',
+            borderGilded: '#2a2e3d',
+            gold: '#d4af37',
+            goldLight: '#f6e082',
+            ember: '#ff6b35',
+            flame: '#ff9233',
+            blood: '#8b1e1e',
+          },
+          fontFamily: {
+            serif: ['Cinzel', 'serif'],
+            archaic: ['Cormorant Garamond', 'Georgia', 'serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            gilded: '0 0 35px -5px rgba(212, 175, 55, 0.15)',
+            emberGlow: '0 0 40px -5px rgba(255, 107, 53, 0.25)',
+            deepCard: '0 20px 40px -15px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(212, 175, 55, 0.12)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Make-interfaces-feel-better core tweaks */
+    body {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background-color: #08090c;
+      color: #e2e4ea;
+      font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    }
+    
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+    
+    h1, h2, h3 {
+      text-wrap: balance;
+    }
+    
+    p {
+      text-wrap: pretty;
+    }
+
+    /* Ambient noise overlay */
+    .bg-grain {
+      background-image: radial-gradient(rgba(212, 175, 55, 0.04) 1px, transparent 1px);
+      background-size: 32px 32px;
+    }
+
+    /* Interactive press feedback */
+    .btn-tactile {
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+    .btn-tactile:active {
+      transform: scale(0.97);
+    }
+
+    /* Gilded border gradient */
+    .border-gradient-gold {
+      border-image: linear-gradient(to bottom, #d4af37, rgba(212, 175, 55, 0.1), rgba(255, 107, 53, 0.3)) 1;
+    }
+  </style>
+</head>
+<body class="bg-void text-stone-200 bg-grain selection:bg-gold/30 selection:text-goldLight min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+  <!-- ========================================================================= -->
+  <!-- 1. TOP NAV / HEADER -->
+  <!-- ========================================================================= -->
+  <header class="sticky top-0 z-50 backdrop-blur-xl bg-void/85 border-b border-borderGilded/80 transition-all">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+      
+      <!-- Brand Insignia & Wordmark -->
+      <a href="/" class="flex items-center gap-3.5 group cursor-pointer">
+        <!-- Custom Heraldic SVG Crest -->
+        <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-gold/20 via-obsidian to-ember/20 border border-gold/40 flex items-center justify-center shadow-gilded group-hover:border-gold transition-colors">
+          <svg class="w-6 h-6 text-gold drop-shadow-[0_0_8px_rgba(212,175,55,0.6)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2L3 7v9c0 5 9 8 9 8s9-3 9-8V7l-9-5z"/>
+            <path d="M12 7v7"/>
+            <circle cx="12" cy="14" r="1.5" fill="currentColor"/>
+            <path d="M9 11l6-2"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-serif text-lg font-bold tracking-widest text-gold uppercase flex items-center gap-2">
+            Tiny Dungeon
+            <span class="text-[10px] font-mono tracking-normal px-2 py-0.5 rounded-full bg-gold/10 border border-gold/30 text-goldLight font-normal">
+              v1.0.0
+            </span>
+          </div>
+          <p class="text-[11px] font-archaic italic text-stone-400 tracking-wider">
+            The Ember Measure • Roll & Write
+          </p>
+        </div>
+      </a>
+
+      <!-- Navigation Links -->
+      <nav class="hidden md:flex items-center gap-8 font-serif text-xs uppercase tracking-widest text-stone-300">
+        <a href="#experiencia" class="hover:text-gold transition-colors">A Experiência</a>
+        <a href="#herois" class="hover:text-gold transition-colors">Os Quatro Heróis</a>
+        <a href="#dados" class="hover:text-gold transition-colors">Draft de Dados</a>
+        <a href="#chefes" class="hover:text-gold transition-colors">Chefes Canônicos</a>
+        <a href="#engenharia" class="hover:text-gold transition-colors">Arquitetura</a>
+      </nav>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-3">
+        <a href="https://github.com/two2dope/tiny-dungeon" target="_blank" rel="noopener noreferrer"
+           class="btn-tactile hidden sm:flex items-center gap-2 px-3.5 py-2 rounded-lg bg-card border border-borderGilded hover:border-gold/50 text-xs font-mono text-stone-300 transition-all">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+          <span>GitHub</span>
+        </a>
+
+        <a href="/" 
+           class="btn-tactile flex items-center gap-2 px-5 py-2.5 rounded-lg bg-gradient-to-r from-gold via-amber-500 to-ember text-black font-serif font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(212,175,55,0.4)] hover:brightness-110 transition-all">
+          <svg class="w-4 h-4 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span>Jogar Agora</span>
+        </a>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. HERO PRINCIPAL (LCP COM FETCHPRIORITY HIGH) -->
+  <!-- ========================================================================= -->
+  <main>
+    <section class="relative pt-12 pb-24 md:pt-20 md:pb-32 px-6 max-w-7xl mx-auto flex flex-col items-center text-center">
+      
+      <!-- Sub-tag ornamentada -->
+      <div class="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-obsidian border border-gold/30 shadow-gilded mb-8">
+        <span class="w-2 h-2 rounded-full bg-ember animate-ping"></span>
+        <span class="font-serif text-xs uppercase tracking-widest text-goldLight">
+          Adaptação Oficial do Jogo de Tabuleiro • Modo Solo
+        </span>
+      </div>
+
+      <!-- Headline de Alto Impacto -->
+      <h1 class="font-serif text-4xl sm:text-6xl md:text-7xl font-black uppercase tracking-wider text-stone-100 max-w-5xl leading-[1.08] drop-shadow-2xl">
+        O Labirinto das Sombras <br class="hidden sm:inline" />
+        <span class="bg-gradient-to-r from-gold via-goldLight to-flame bg-clip-text text-transparent">
+          Reinvocado em Três Dimensões
+        </span>
+      </h1>
+
+      <!-- Parágrafo de Apoio -->
+      <p class="font-archaic text-xl sm:text-2xl text-stone-300 max-w-3xl mt-6 leading-relaxed">
+        Uma experiência digital envolvente inspirada na estética sombria e refinada de 
+        <em class="text-gold italic font-semibold">Vesperfall</em>. Conduza quatro heróis por câmaras misteriosas, 
+        lance dados de osso e obsidiana, confronte feras ancestrais e registre sua glória no lendário grimório 
+        <strong class="text-stone-100 font-semibold font-serif">The Ember Measure</strong>.
+      </p>
+
+      <!-- CTAs de Entrada -->
+      <div class="flex flex-wrap items-center justify-center gap-4 mt-10">
+        <a href="/" 
+           class="btn-tactile px-8 py-4 rounded-xl bg-gradient-to-r from-amber-600 via-gold to-amber-500 text-black font-serif font-black text-sm uppercase tracking-widest shadow-[0_10px_30px_rgba(212,175,55,0.35)] hover:shadow-[0_15px_40px_rgba(212,175,55,0.5)] transition-all flex items-center gap-3">
+          <svg class="w-5 h-5 fill-black" viewBox="0 0 24 24">
+            <polygon points="5 3 19 12 5 21 5 3"/>
+          </svg>
+          <span>Iniciar Expedição (8 Rodadas)</span>
+        </a>
+
+        <a href="#experiencia" 
+           class="btn-tactile px-7 py-4 rounded-xl bg-card/80 backdrop-blur-md border border-borderGilded text-stone-200 font-serif font-semibold text-sm uppercase tracking-wider hover:border-gold/60 transition-all flex items-center gap-2">
+          <span>Ver Mecânicas & Regras</span>
+          <svg class="w-4 h-4 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </a>
+      </div>
+
+      <!-- Hero Visual Frame (LCP Prioritário) -->
+      <figure class="w-full mt-14 relative rounded-2xl p-2 bg-gradient-to-b from-borderGilded via-obsidian to-borderGilded shadow-deepCard group overflow-hidden">
+        
+        <!-- Moldura Interior com Efeito Vignette -->
+        <div class="relative rounded-xl overflow-hidden aspect-[16/9] max-h-[640px] w-full bg-void">
+          <img src="/assets/Adventurers_standing_before_ston._20261024174435.jpg" 
+               alt="Grupo de heróis diante do portal do calabouço em Tiny Dungeon"
+               fetchpriority="high"
+               width="1920" height="1080"
+               class="w-full h-full object-cover object-center transform group-hover:scale-105 transition-transform duration-700 ease-out">
+          
+          <!-- Gradientes atmosféricos escuros -->
+          <div class="absolute inset-0 bg-gradient-to-t from-void via-void/30 to-transparent pointer-events-none"></div>
+          <div class="absolute inset-0 ring-1 ring-inset ring-gold/20 rounded-xl pointer-events-none"></div>
+
+          <!-- Distintivos Flutuantes (Floating Badges) -->
+          <div class="absolute bottom-6 left-6 right-6 flex flex-wrap items-center justify-between gap-4 pointer-events-none">
+            
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-void/80 backdrop-blur-md border border-gold/30 text-left shadow-lg">
+              <div class="w-10 h-10 rounded-lg bg-ember/20 border border-ember/40 flex items-center justify-center text-ember">
+                <svg class="w-5 h-5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-serif text-xs font-bold text-goldLight tracking-wider uppercase">Fidelidade Total</p>
+                <p class="text-[11px] font-mono text-stone-400">Regras de Paper Dungeons • 8 Rodadas</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-void/80 backdrop-blur-md border border-borderGilded text-left shadow-lg">
+              <div class="w-10 h-10 rounded-lg bg-sky-950/60 border border-sky-500/40 flex items-center justify-center text-sky-400">
+                <svg class="w-5 h-5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                  <path d="M3 3v5h5"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-serif text-xs font-bold text-stone-200 tracking-wider uppercase">Sem Permadeath Frustrante</p>
+                <p class="text-[11px] font-mono text-stone-400">Ressurreição (-9 Glória) + Desfazer Intra-Turno</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3 p-3 rounded-xl bg-void/80 backdrop-blur-md border border-gold/30 text-left shadow-lg">
+              <div class="w-10 h-10 rounded-lg bg-gold/20 border border-gold/40 flex items-center justify-center text-gold">
+                <svg class="w-5 h-5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </div>
+              <div>
+                <p class="font-serif text-xs font-bold text-goldLight tracking-wider uppercase">WebGL2 + R3F</p>
+                <p class="text-[11px] font-mono text-stone-400">Iluminação com Tochas & 60 FPS Suave</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <figcaption class="mt-3 text-center text-xs font-mono text-stone-400">
+          Tiny Dungeon: Explorando o labirinto em 3D isométrico procedural com The Ember Measure ativo.
+        </figcaption>
+      </figure>
+
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 3. A EXPERIÊNCIA ISOMÉTRICA & TABULEIRO -->
+    <!-- ========================================================================= -->
+    <section id="experiencia" class="py-20 border-t border-borderGilded/60 bg-gradient-to-b from-void via-obsidian to-void px-6">
+      <div class="max-w-7xl mx-auto">
+        
+        <div class="text-center max-w-3xl mx-auto mb-16">
+          <p class="font-serif text-xs uppercase tracking-widest text-gold mb-2">Visão Tática e Espacial</p>
+          <h2 class="font-serif text-3xl sm:text-5xl font-bold uppercase tracking-wider text-stone-100">
+            A Atmosfera de Vesperfall Encontra o Tabuleiro Analógico
+          </h2>
+          <p class="font-archaic text-xl text-stone-400 mt-4">
+            Em vez de PDFs estáticos ou planilhas cinzentas, cada passo da sua comitiva projeta luz sobre 
+            paredes de pedra esculpidas em tempo real, enquanto algoritmos de grafos validam cada corredor.
+          </p>
+        </div>
+
+        <!-- Grid de 3 Pilares Visuais -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          <!-- Card 1: 3D Isometric View -->
+          <article class="bg-card rounded-2xl p-6 border border-borderGilded hover:border-gold/40 transition-all shadow-deepCard flex flex-col justify-between group">
+            <div>
+              <div class="aspect-[4/3] rounded-xl overflow-hidden mb-5 relative bg-void border border-borderGilded">
+                <img src="/assets/Dungeon_boss_chamber_tile_20261024174520.jpg" 
+                     alt="Câmara do chefe em pedra escura com runas incandescentes"
+                     loading="lazy"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-void/90 via-transparent to-transparent"></div>
+                <div class="absolute bottom-3 left-3 text-[11px] font-mono text-gold px-2.5 py-1 rounded bg-void/80 border border-gold/30">
+                  Câmara de Chefe (4x4)
+                </div>
+              </div>
+              <h3 class="font-serif text-xl font-bold text-stone-100 tracking-wide">
+                Arquitetura Low-Poly Procedural
+              </h3>
+              <p class="text-sm font-sans text-stone-400 mt-2.5 leading-relaxed">
+                Geometria gerada por Three.js com lajes chanfradas, tochas com tremulação orgânica senoidal e paredes que bloqueiam movimentos ilegais com fidelidade física.
+              </p>
+            </div>
+            <div class="mt-6 pt-4 border-t border-borderGilded/70 flex items-center justify-between text-xs font-mono text-stone-400">
+              <span>Câmera Ortográfica</span>
+              <span class="text-gold">Isometric Orbit</span>
+            </div>
+          </article>
+
+          <!-- Card 2: Miniatures & Exploration -->
+          <article class="bg-card rounded-2xl p-6 border border-borderGilded hover:border-gold/40 transition-all shadow-deepCard flex flex-col justify-between group">
+            <div>
+              <div class="aspect-[4/3] rounded-xl overflow-hidden mb-5 relative bg-void border border-borderGilded">
+                <img src="/assets/Tabletop_miniatures_of_dungeon_m._20261024174542.jpg" 
+                     alt="Miniaturas de monstros e heróis sobre mapa de masmorra"
+                     loading="lazy"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-void/90 via-transparent to-transparent"></div>
+                <div class="absolute bottom-3 left-3 text-[11px] font-mono text-ember px-2.5 py-1 rounded bg-void/80 border border-ember/30">
+                  Minions & Desafios
+                </div>
+              </div>
+              <h3 class="font-serif text-xl font-bold text-stone-100 tracking-wide">
+                Encontros & Desafio de Nível
+              </h3>
+              <p class="text-sm font-sans text-stone-400 mt-2.5 leading-relaxed">
+                Goblins, Esqueletos, Orcs e Trolls espreitam nas câmaras inexploradas. Compare o nível dos heróis: se o grupo for forte, derrota sem ferimentos; caso contrário, sofre dano de batalha.
+              </p>
+            </div>
+            <div class="mt-6 pt-4 border-t border-borderGilded/70 flex items-center justify-between text-xs font-mono text-stone-400">
+              <span>Recompensa de Glória</span>
+              <span class="text-emerald-400">+2 a +5 pts</span>
+            </div>
+          </article>
+
+          <!-- Card 3: Relics & Chests -->
+          <article class="bg-card rounded-2xl p-6 border border-borderGilded hover:border-gold/40 transition-all shadow-deepCard flex flex-col justify-between group">
+            <div>
+              <div class="aspect-[4/3] rounded-xl overflow-hidden mb-5 relative bg-void border border-borderGilded">
+                <img src="/assets/Iron_treasure_chest_glowing_red_20261024174531.jpg" 
+                     alt="Baú de tesouro em ferro forjado com brilho avermelhado"
+                     loading="lazy"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                <div class="absolute inset-0 bg-gradient-to-t from-void/90 via-transparent to-transparent"></div>
+                <div class="absolute bottom-3 left-3 text-[11px] font-mono text-cyan-400 px-2.5 py-1 rounded bg-void/80 border border-cyan-500/30">
+                  Gemas & Artefatos
+                </div>
+              </div>
+              <h3 class="font-serif text-xl font-bold text-stone-100 tracking-wide">
+                Tesouros & Artes Alquímicas
+              </h3>
+              <p class="text-sm font-sans text-stone-400 mt-2.5 leading-relaxed">
+                Descubra veios de gemas puras, destile poções curativas de recuperação imediata (+2 de vida) e forje artefatos mágicos que aumentam a pontuação final de glória.
+              </p>
+            </div>
+            <div class="mt-6 pt-4 border-t border-borderGilded/70 flex items-center justify-between text-xs font-mono text-stone-400">
+              <span>Valor em Glória</span>
+              <span class="text-cyan-400">+2 pts por gema/item</span>
+            </div>
+          </article>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 4. OS QUATRO HERÓIS & THE EMBER MEASURE -->
+    <!-- ========================================================================= -->
+    <section id="herois" class="py-24 border-t border-borderGilded/60 bg-void px-6">
+      <div class="max-w-7xl mx-auto">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          <!-- Left: Big Portrait Artwork -->
+          <div class="lg:col-span-5 relative">
+            <div class="rounded-2xl p-2 bg-gradient-to-b from-gold/30 via-borderGilded to-ember/30 shadow-deepCard overflow-hidden">
+              <div class="rounded-xl overflow-hidden aspect-[4/5] bg-obsidian relative">
+                <img src="/assets/Four_fantasy_heroes_at_dungeon_20261024174404.jpg" 
+                     alt="Retrato dos 4 heróis: Guerreiro, Mago, Clérigo e Ladino"
+                     loading="lazy"
+                     class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-void via-transparent to-transparent"></div>
+                <div class="absolute bottom-6 left-6 right-6">
+                  <p class="font-serif text-lg font-bold text-goldLight">A Comitiva das Chamas</p>
+                  <p class="text-xs font-archaic italic text-stone-300">Quatro lendas forjadas pelo destino</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right: Hero Tracks Explanation -->
+          <div class="lg:col-span-7 space-y-6">
+            <div>
+              <p class="font-serif text-xs uppercase tracking-widest text-gold mb-2">Trilha de Evolução do Grupo</p>
+              <h2 class="font-serif text-3xl sm:text-4xl font-bold uppercase tracking-wider text-stone-100">
+                The Ember Measure: Grimório dos Heróis
+              </h2>
+              <p class="font-archaic text-xl text-stone-300 mt-3">
+                Cada herói possui sua própria trilha de poder (níveis 1 a 6). A soma de seus níveis 
+                determina o <strong class="text-flame font-semibold">Poder Bélico Total</strong> da expedição, 
+                essencial para superar os Chefes das rodadas 3, 6 e 8.
+              </p>
+            </div>
+
+            <!-- The 4 Hero Class Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              
+              <!-- Guerreiro -->
+              <div class="p-4 rounded-xl bg-card border border-orange-500/30 bg-orange-950/10 flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-orange-400">
+                    <svg class="w-5 h-5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/>
+                      <line x1="13" y1="19" x2="19" y2="13"/>
+                      <line x1="16" y1="16" x2="20" y2="20"/>
+                      <line x1="19" y1="21" x2="21" y2="19"/>
+                    </svg>
+                    <span class="font-serif font-bold text-stone-100">Guerreiro</span>
+                  </div>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-orange-950/60 text-orange-300 border border-orange-800">
+                    Dado: Espada
+                  </span>
+                </div>
+                <p class="text-xs text-stone-400">
+                  Líder de ataque brutal. Essencial para anular monstros pesados e elevar o teto bélico contra os chefes.
+                </p>
+                <div class="flex gap-1 mt-1">
+                  <div class="h-1.5 flex-1 rounded bg-orange-500"></div>
+                  <div class="h-1.5 flex-1 rounded bg-orange-500/70"></div>
+                  <div class="h-1.5 flex-1 rounded bg-orange-500/40"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                </div>
+              </div>
+
+              <!-- Mago -->
+              <div class="p-4 rounded-xl bg-card border border-purple-500/30 bg-purple-950/10 flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-purple-400">
+                    <svg class="w-5 h-5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M15 4V2"/>
+                      <path d="M15 16v-2"/>
+                      <path d="M8 9h2"/>
+                      <path d="M20 9h2"/>
+                      <path d="M17.8 11.8 19 13"/>
+                      <path d="M15 9h0"/>
+                      <path d="M17.8 6.2 19 5"/>
+                      <path d="m3 21 9-9"/>
+                      <path d="M12.2 6.2 11 5"/>
+                    </svg>
+                    <span class="font-serif font-bold text-stone-100">Mago</span>
+                  </div>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-950/60 text-purple-300 border border-purple-800">
+                    Dado: Magia
+                  </span>
+                </div>
+                <p class="text-xs text-stone-400">
+                  Manipulador dos elementos arcanos. Seus feitiços transmutam obstáculos e fornecem poder místico ao grupo.
+                </p>
+                <div class="flex gap-1 mt-1">
+                  <div class="h-1.5 flex-1 rounded bg-purple-500"></div>
+                  <div class="h-1.5 flex-1 rounded bg-purple-500/70"></div>
+                  <div class="h-1.5 flex-1 rounded bg-purple-500/40"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                </div>
+              </div>
+
+              <!-- Clérigo -->
+              <div class="p-4 rounded-xl bg-card border border-sky-500/30 bg-sky-950/10 flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-sky-400">
+                    <svg class="w-5 h-5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                    <span class="font-serif font-bold text-stone-100">Clérigo</span>
+                  </div>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-950/60 text-sky-300 border border-sky-800">
+                    Dado: Escudo
+                  </span>
+                </div>
+                <p class="text-xs text-stone-400">
+                  Canalizador da fé sagrada. Sustenta o grupo nas trevas e confere defesa inabalável contra ameaças letais.
+                </p>
+                <div class="flex gap-1 mt-1">
+                  <div class="h-1.5 flex-1 rounded bg-sky-500"></div>
+                  <div class="h-1.5 flex-1 rounded bg-sky-500/70"></div>
+                  <div class="h-1.5 flex-1 rounded bg-sky-500/40"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                </div>
+              </div>
+
+              <!-- Ladino -->
+              <div class="p-4 rounded-xl bg-card border border-emerald-500/30 bg-emerald-950/10 flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2 text-emerald-400">
+                    <svg class="w-5 h-5 stroke-[2]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <circle cx="7.5" cy="15.5" r="5.5"/>
+                      <path d="m21 2-9.6 9.6"/>
+                      <path d="m15.5 7.5 3 3L22 7l-3-3"/>
+                    </svg>
+                    <span class="font-serif font-bold text-stone-100">Ladino</span>
+                  </div>
+                  <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800">
+                    Dado: Chave
+                  </span>
+                </div>
+                <p class="text-xs text-stone-400">
+                  Mestre do desarme e infiltração. Abre cofres ocultos, contorna armadilhas e descobre passagens secretas.
+                </p>
+                <div class="flex gap-1 mt-1">
+                  <div class="h-1.5 flex-1 rounded bg-emerald-500"></div>
+                  <div class="h-1.5 flex-1 rounded bg-emerald-500/70"></div>
+                  <div class="h-1.5 flex-1 rounded bg-emerald-500/40"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                  <div class="h-1.5 flex-1 rounded bg-stone-800"></div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 5. O DESTINO NOS DADOS & DRAFT SYSTEM -->
+    <!-- ========================================================================= -->
+    <section id="dados" class="py-24 border-t border-borderGilded/60 bg-gradient-to-b from-void via-obsidian to-void px-6">
+      <div class="max-w-7xl mx-auto">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          <!-- Left: Mechanics Text -->
+          <div class="lg:col-span-6 space-y-6">
+            <div>
+              <p class="font-serif text-xs uppercase tracking-widest text-gold mb-2">Mecânica Central de Escolhas</p>
+              <h2 class="font-serif text-3xl sm:text-5xl font-bold uppercase tracking-wider text-stone-100">
+                O Destino Gravado em Seis Dados
+              </h2>
+              <p class="font-archaic text-xl text-stone-300 mt-4 leading-relaxed">
+                A cada rodada, seis dados são lançados sobre a pedra fria: <span class="text-stone-100 font-semibold">três brancos</span> e <span class="text-rose-400 font-semibold">três negros</span>. Você deve escolher exatamente <strong>três</strong> deles para forjar o destino da rodada.
+              </p>
+            </div>
+
+            <!-- Bullet details -->
+            <div class="space-y-4 text-sm font-sans text-stone-300">
+              <div class="flex items-start gap-3 p-3.5 rounded-xl bg-card border border-borderGilded">
+                <div class="p-2 rounded-lg bg-amber-500/20 text-amber-400 mt-0.5">
+                  <svg class="w-4 h-4 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M4 16v-2.38C4 11.5 2.97 10.5 3 8c.03-2.72 1.49-6 4.5-6C9.37 2 10 3.8 10 5.5c0 3.11-2 5.66-2 8.5V16"/>
+                    <path d="M20 20v-2.38c0-2.12 1.03-3.12 1-5.62-.03-2.72-1.49-6-4.5-6C14.63 6 14 7.8 14 9.5c0 3.11 2 5.66 2 8.5V20"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="font-serif font-bold text-stone-100">Movimentação Tática (Dado de Bota)</h4>
+                  <p class="text-stone-400 text-xs mt-0.5">Concede até 2 passos no labirinto. Caminhar por salas já exploradas é seguro; salas novas ativam encontros imediatos.</p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3 p-3.5 rounded-xl bg-card border border-borderGilded">
+                <div class="p-2 rounded-lg bg-rose-500/20 text-rose-400 mt-0.5">
+                  <svg class="w-4 h-4 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="9" cy="12" r="1"/>
+                    <circle cx="15" cy="12" r="1"/>
+                    <path d="M8 20v2h8v-2"/>
+                    <path d="m12.5 17-.5-1-.5 1h1z"/>
+                    <path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="font-serif font-bold text-stone-100">Fase de Perigo (Regra dos 3 Crânios)</h4>
+                  <p class="text-stone-400 text-xs mt-0.5">Se a rolagem inicial exibir 3 ou mais crânios, 1 ferimento coletivo é sofrido automaticamente antes do rascunho de ações.</p>
+                </div>
+              </div>
+
+              <div class="flex items-start gap-3 p-3.5 rounded-xl bg-card border border-borderGilded">
+                <div class="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 mt-0.5">
+                  <svg class="w-4 h-4 stroke-[2.5]" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h4 class="font-serif font-bold text-stone-100">Desfazer & Refazer Livre</h4>
+                  <p class="text-stone-400 text-xs mt-0.5">Teste caminhos e combinações sem medo. O estado é totalmente reversível antes de clicar em "Confirmar Rodada".</p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right: Cinematic Dice Artwork -->
+          <div class="lg:col-span-6 relative">
+            <div class="rounded-2xl p-2 bg-gradient-to-b from-ember/30 via-borderGilded to-gold/30 shadow-deepCard overflow-hidden">
+              <div class="rounded-xl overflow-hidden aspect-[4/3] bg-obsidian relative">
+                <img src="/assets/Dice_resting_on_obsidian_surface_20261024174513.jpg" 
+                     alt="Dados de osso e obsidiana sobre mesa de pedra escura"
+                     loading="lazy"
+                     class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-gradient-to-t from-void via-transparent to-transparent"></div>
+                <div class="absolute bottom-6 left-6 right-6">
+                  <p class="font-serif text-lg font-bold text-goldLight">O Tabuleiro dos Dados</p>
+                  <p class="text-xs font-archaic italic text-stone-300">Três brancos e três negros a cada amanhecer sombrio</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 6. OS TRÊS CHEFES CANÔNICOS & GLÓRIA -->
+    <!-- ========================================================================= -->
+    <section id="chefes" class="py-24 border-t border-borderGilded/60 bg-void px-6">
+      <div class="max-w-7xl mx-auto">
+        
+        <div class="text-center max-w-3xl mx-auto mb-16">
+          <p class="font-serif text-xs uppercase tracking-widest text-gold mb-2">Confrontos Inevitáveis</p>
+          <h2 class="font-serif text-3xl sm:text-5xl font-bold uppercase tracking-wider text-stone-100">
+            A Provação das Rodadas 3, 6 e 8
+          </h2>
+          <p class="font-archaic text-xl text-stone-400 mt-4">
+            Ao final das rodadas marcadas, o grupo confronta os governantes do labirinto. 
+            A vitória concede glória imensa; a derrota cobra ferimentos amargos.
+          </p>
+        </div>
+
+        <!-- 3 Boss Columns -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          
+          <!-- Boss 1: Manticore -->
+          <div class="p-6 rounded-2xl bg-card border border-borderGilded hover:border-amber-500/50 transition-all shadow-deepCard flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between text-xs font-mono text-stone-400 pb-3 border-b border-borderGilded">
+                <span>Rodada 3</span>
+                <span class="text-amber-400 font-bold uppercase">Primeiro Guardião</span>
+              </div>
+              <h3 class="font-serif text-2xl font-bold text-stone-100 mt-4 tracking-wide">
+                A Mantícora
+              </h3>
+              <p class="text-xs font-sans text-stone-400 mt-2">
+                Fera alada com ferrão peçonhento que exige prontidão das armas dos heróis.
+              </p>
+
+              <!-- Threshold Table -->
+              <div class="mt-6 space-y-2 text-xs font-mono">
+                <div class="flex items-center justify-between p-2.5 rounded bg-obsidian border border-borderGilded">
+                  <span class="text-gold">Vitória Tier 1 (Poder ≥ 6)</span>
+                  <span class="font-bold text-goldLight">+8 Glória</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded bg-obsidian border border-borderGilded">
+                  <span class="text-stone-300">Vitória Tier 2 (Poder ≥ 4)</span>
+                  <span class="font-bold text-stone-200">+4 Glória</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded bg-red-950/20 border border-red-900/40 text-red-300">
+                  <span>Derrota (Poder &lt; 4)</span>
+                  <span class="font-bold">2 Ferimentos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Boss 2: Beholder / Eye Tyrant -->
+          <div class="p-6 rounded-2xl bg-card border border-borderGilded hover:border-purple-500/50 transition-all shadow-deepCard flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between text-xs font-mono text-stone-400 pb-3 border-b border-borderGilded">
+                <span>Rodada 6</span>
+                <span class="text-purple-400 font-bold uppercase">Tirano Abissal</span>
+              </div>
+              <h3 class="font-serif text-2xl font-bold text-stone-100 mt-4 tracking-wide">
+                Tirano Ocular
+              </h3>
+              <p class="text-xs font-sans text-stone-400 mt-2">
+                Entidade aberrante flutuante cujos raios oculares desafiam as artes mágicas do grupo.
+              </p>
+
+              <!-- Threshold Table -->
+              <div class="mt-6 space-y-2 text-xs font-mono">
+                <div class="flex items-center justify-between p-2.5 rounded bg-obsidian border border-borderGilded">
+                  <span class="text-gold">Vitória Tier 1 (Poder ≥ 10)</span>
+                  <span class="font-bold text-goldLight">+12 Glória</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded bg-obsidian border border-borderGilded">
+                  <span class="text-stone-300">Vitória Tier 2 (Poder ≥ 7)</span>
+                  <span class="font-bold text-stone-200">+6 Glória</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded bg-red-950/20 border border-red-900/40 text-red-300">
+                  <span>Derrota (Poder &lt; 7)</span>
+                  <span class="font-bold">3 Ferimentos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Boss 3: Red Dragon -->
+          <div class="p-6 rounded-2xl bg-card border border-borderGilded hover:border-rose-500/50 transition-all shadow-deepCard flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between text-xs font-mono text-stone-400 pb-3 border-b border-borderGilded">
+                <span>Rodada 8 (Clímax)</span>
+                <span class="text-rose-500 font-bold uppercase">Monarca das Chamas</span>
+              </div>
+              <h3 class="font-serif text-2xl font-bold text-stone-100 mt-4 tracking-wide">
+                Dragão Vermelho Ancião
+              </h3>
+              <p class="text-xs font-sans text-stone-400 mt-2">
+                O ápice do perigo. Seus sopros ardentes e escamas de ferro exigem heroísmo máximo.
+              </p>
+
+              <!-- Threshold Table -->
+              <div class="mt-6 space-y-2 text-xs font-mono">
+                <div class="flex items-center justify-between p-2.5 rounded bg-obsidian border border-borderGilded">
+                  <span class="text-gold">Vitória Tier 1 (Poder ≥ 14)</span>
+                  <span class="font-bold text-goldLight">+16 Glória</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded bg-obsidian border border-borderGilded">
+                  <span class="text-stone-300">Vitória Tier 2 (Poder ≥ 10)</span>
+                  <span class="font-bold text-stone-200">+8 Glória</span>
+                </div>
+                <div class="flex items-center justify-between p-2.5 rounded bg-red-950/20 border border-red-900/40 text-red-300">
+                  <span>Derrota (Poder &lt; 10)</span>
+                  <span class="font-bold">4 Ferimentos</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 7. ARQUITETURA & ENGENHARIA DE SOFTWARE -->
+    <!-- ========================================================================= -->
+    <section id="engenharia" class="py-24 border-t border-borderGilded/60 bg-gradient-to-b from-void via-obsidian to-void px-6">
+      <div class="max-w-7xl mx-auto">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+          
+          <div class="lg:col-span-5 space-y-5">
+            <p class="font-serif text-xs uppercase tracking-widest text-gold mb-1">Engenharia de Software</p>
+            <h2 class="font-serif text-3xl sm:text-4xl font-bold uppercase tracking-wider text-stone-100">
+              Desacoplamento Rigoroso & TDD
+            </h2>
+            <p class="font-archaic text-xl text-stone-300">
+              O motor de regras (`@engine`) é construído em TypeScript puro, completamente independente de bibliotecas gráficas ou de renderização. 
+            </p>
+            <div class="space-y-3 pt-2 text-xs font-mono text-stone-300">
+              <div class="p-3 rounded-lg bg-card border border-borderGilded flex items-center justify-between">
+                <span>Suíte de Testes Automatizados</span>
+                <span class="text-emerald-400 font-bold">22/22 Testes Verdes</span>
+              </div>
+              <div class="p-3 rounded-lg bg-card border border-borderGilded flex items-center justify-between">
+                <span>Framework de Testes</span>
+                <span class="text-stone-100 font-bold">Vitest 3.0</span>
+              </div>
+              <div class="p-3 rounded-lg bg-card border border-borderGilded flex items-center justify-between">
+                <span>Coordenação de Estados</span>
+                <span class="text-stone-100 font-bold">Zustand + Action Stack</span>
+              </div>
+              <div class="p-3 rounded-lg bg-card border border-borderGilded flex items-center justify-between">
+                <span>Renderização Gráfica</span>
+                <span class="text-stone-100 font-bold">Three.js + R3F + Drei</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Code Architecture Snippet -->
+          <div class="lg:col-span-7">
+            <div class="rounded-2xl p-4 bg-obsidian border border-borderGilded shadow-deepCard font-mono text-xs text-stone-300 overflow-x-auto">
+              <div class="flex items-center justify-between pb-3 mb-3 border-b border-borderGilded text-stone-400">
+                <span class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+                  <span class="w-3 h-3 rounded-full bg-amber-500/80 inline-block"></span>
+                  <span class="w-3 h-3 rounded-full bg-emerald-500/80 inline-block"></span>
+                  <span class="ml-2 text-stone-300">src/engine/scoring.ts</span>
+                </span>
+                <span class="text-[10px] text-stone-500">Pure Domain Logic</span>
+              </div>
+              <pre class="leading-relaxed text-stone-300"><code><span class="text-purple-400">export function</span> <span class="text-amber-300">calculateFinalGloryScore</span>(input: <span class="text-sky-300">ScoreInput</span>): <span class="text-sky-300">FinalScoreBreakdown</span> {
+  <span class="text-purple-400">const</span> { party, minionsGlory, bossGlory, gemsCount, itemsCrafted } = input;
+
+  <span class="text-stone-500">// 1 ponto de glória por nível alcançado nos 4 heróis</span>
+  <span class="text-purple-400">const</span> heroLevelsGlory =
+    party.heroes.warrior.level +
+    party.heroes.mage.level +
+    party.heroes.cleric.level +
+    party.heroes.rogue.level;
+
+  <span class="text-purple-400">const</span> gemsGlory = gemsCount * <span class="text-orange-400">2</span>;
+  <span class="text-purple-400">const</span> itemsGlory = itemsCrafted * <span class="text-orange-400">2</span>;
+  <span class="text-purple-400">const</span> resurrectionPenalties = party.resurrections * <span class="text-orange-400">9</span>; <span class="text-stone-500">// -9 pts por morte</span>
+
+  <span class="text-purple-400">const</span> netGlory =
+    minionsGlory + bossGlory + gemsGlory + itemsGlory + heroLevelsGlory - resurrectionPenalties;
+
+  <span class="text-purple-400">return</span> { minionsGlory, bossesGlory: bossGlory, gemsGlory, itemsGlory, heroLevelsGlory, resurrectionPenalties, netGlory };
+}</code></pre>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- 8. FINAL CALL TO ACTION -->
+    <!-- ========================================================================= -->
+    <section class="py-24 border-t border-borderGilded/60 bg-void px-6 text-center relative overflow-hidden">
+      <!-- Glow effect -->
+      <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-96 h-96 bg-gold/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="max-w-4xl mx-auto relative z-10">
+        <h2 class="font-serif text-3xl sm:text-5xl font-black uppercase tracking-wider text-stone-100">
+          As Tochas Foram Acesas. <br />
+          <span class="text-gold">Sua Expedição Começa Agora.</span>
+        </h2>
+        <p class="font-archaic text-xl text-stone-300 mt-4 max-w-2xl mx-auto">
+          Pronto para testar sua estratégia tática, gerenciar ferimentos e conquistar o mais alto patamar de glória?
+        </p>
+
+        <div class="flex flex-wrap items-center justify-center gap-4 mt-8">
+          <a href="/" 
+             class="btn-tactile px-9 py-4 rounded-xl bg-gradient-to-r from-amber-600 via-gold to-amber-500 text-black font-serif font-black text-sm uppercase tracking-widest shadow-[0_10px_35px_rgba(212,175,55,0.4)] hover:brightness-110 transition-all">
+            Entrar no Calabouço
+          </a>
+
+          <a href="https://github.com/two2dope/tiny-dungeon" target="_blank" rel="noopener noreferrer"
+             class="btn-tactile px-8 py-4 rounded-xl bg-card border border-borderGilded text-stone-200 font-serif font-bold text-sm uppercase tracking-wider hover:border-gold/60 transition-all">
+            Ver Código no GitHub
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ========================================================================= -->
+  <!-- 9. FOOTER -->
+  <!-- ========================================================================= -->
+  <footer class="border-t border-borderGilded/80 bg-obsidian py-10 px-6">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left text-xs font-mono text-stone-500">
+      
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded bg-gold/10 border border-gold/30 flex items-center justify-center text-gold">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+            <path d="M12 2L3 7v9c0 5 9 8 9 8s9-3 9-8V7l-9-5z"/>
+          </svg>
+        </div>
+        <span>Tiny Dungeon • Baseado nas regras canônicas de Paper Dungeons</span>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <a href="#experiencia" class="hover:text-stone-300 transition-colors">Mecânicas</a>
+        <a href="#herois" class="hover:text-stone-300 transition-colors">Heróis</a>
+        <a href="#dados" class="hover:text-stone-300 transition-colors">Dados</a>
+        <a href="https://github.com/two2dope/tiny-dungeon" target="_blank" class="hover:text-gold transition-colors">Repositório GitHub</a>
+      </div>
+
+      <div>
+        <span>MIT License • Feito com paixão por jogos táticos</span>
+      </div>
+
+    </div>
+  </footer>
+
+</body>
+</html>

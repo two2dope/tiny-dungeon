@@ -4,6 +4,11 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    watch: {
+      ignored: ['**/node_modules/**', '**/.git/**', '**/assets/**'],
+    },
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
