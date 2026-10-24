@@ -1,121 +1,173 @@
-# Tiny Dungeon — The Ember Measure
+<p align="center">
+  <img src="assets/hero-banner.jpg" alt="Tiny Dungeon — The Ember Measure" width="100%" style="border-radius: 14px; box-shadow: 0 20px 40px rgba(0,0,0,0.8);" />
+</p>
 
-> Jogo tático de *roll-and-write* em 3D isométrico *low-poly* com estética *dark fantasy*, adaptando com fidelidade as regras oficiais de **Paper Dungeons**.
+<h1 align="center">⚔️ TINY DUNGEON ⚔️</h1>
+<p align="center">
+  <strong>The Ember Measure — Dark Isometric Roll-and-Write</strong><br>
+  <em>Uma adaptação tática fiel ao clássico <strong>Paper Dungeons</strong> em 3D low-poly com iluminação dinâmica e estética luxury dark inspirada em <strong>Vesperfall</strong>.</em>
+</p>
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://react.dev/)
-[![Three.js](https://img.shields.io/badge/Three.js-R3F-black.svg)](https://docs.pmnd.rs/react-three-fiber)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8.svg)](https://tailwindcss.com/)
-[![Vitest](https://img.shields.io/badge/Vitest-3.0-success.svg)](https://vitest.dev/)
+<p align="center">
+  <a href="https://two2dope.github.io/tiny-dungeon/hero.html">
+    <img src="https://img.shields.io/badge/🌐_Hero_Page-Ver_Online-d4af37?style=for-the-badge" alt="Hero Page">
+  </a>
+  <a href="https://github.com/two2dope/tiny-dungeon">
+    <img src="https://img.shields.io/badge/GitHub-two2dope%2Ftiny--dungeon-151822?style=for-the-badge&logo=github" alt="GitHub Repo">
+  </a>
+  <img src="https://img.shields.io/badge/Versão-1.0.0_Estável-ff6b35?style=for-the-badge" alt="Versão">
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
+  <img src="https://img.shields.io/badge/React-18.3-61DAFB?logo=react&logoColor=black" alt="React">
+  <img src="https://img.shields.io/badge/Three.js-R3F-000000?logo=three.js&logoColor=white" alt="Three.js">
+  <img src="https://img.shields.io/badge/Tailwind_CSS-3.4-38BDF8?logo=tailwindcss&logoColor=white" alt="Tailwind">
+  <img src="https://img.shields.io/badge/Vitest-22%2F22_Passed-success?logo=vitest&logoColor=white" alt="Tests">
+</p>
 
 ---
 
-## ⚔️ Visão Geral
+## 🏰 Galeria Visual & Pilares de Experiência
 
-*Tiny Dungeon* reimagina a experiência analógica dos jogos de tabuleiro *roll-and-write* em uma aplicação web atmosférica com iluminação dinâmica por tochas, sombras suaves e interface inspirada no padrão *luxury dark* de **Vesperfall (ref-c)**.
-
-### Pilares de Design:
-- **Fidelidade Mecânica:** Regras canônicas de *Paper Dungeons* ao longo de 8 rodadas completas.
-- **Grupo de 4 Classes:** Guerreiro, Mago, Clérigo e Ladino com trilhas individuais de nível (1 a 6).
-- **Draft de Dados:** Pool de 6 dados (3 brancos, 3 negros) por rodada; o jogador seleciona até 3 dados para movimentar, subir nível ou criar itens.
-- **Fase de Perigo:** 3 ou mais crânios rolados na rodada desferem 1 ferimento automático antes do rascunho de ações.
-- **Sem Permadeath Prematuro:** Depleção da vida aplica penalidade de ressurreição (-9 glória na apuração final) e restaura vitalidade para concluir a expedição.
-- **Navegação & Colisão de Paredes:** Movimento ortogonal em matriz 4x4 (Mapa 1 canônico) com bloqueio estrito por paredes de pedra maciça.
-- **Batalhas contra Chefes Solo:** Confrontos nas rodadas 3 (Mantícora), 6 (Tirano Ocular) e 8 (Dragão Vermelho) com patamares de vitória Tier 1, Tier 2 ou penalidade por derrota.
-- **Segurança de Decisão (Undo/Redo):** Histórico de ações dentro da rodada ativa, permitindo ensaiar passos e desfazer antes da confirmação.
-- **Autosave Contínuo:** Gravação automática do estado em `localStorage`.
+<table>
+  <tr>
+    <td width="50%">
+      <img src="assets/boss-chamber.jpg" alt="Câmara Isométrica em 3D" style="border-radius: 8px;" />
+      <h4 align="center">🏛️ Lajes Isométricas em Three.js</h4>
+      <p align="center"><em>Geometria procedural de pedra polida com tochas orgânicas tremeluzentes e colisão real de paredes.</em></p>
+    </td>
+    <td width="50%">
+      <img src="assets/miniatures.jpg" alt="Miniaturas e Desafios de Monstros" style="border-radius: 8px;" />
+      <h4 align="center">👹 Desafios de Monstros & Minions</h4>
+      <p align="center"><em>Goblins, Esqueletos, Orcs e Trolls. Nível suficiente anula ferimentos e rende pontos de Glória.</em></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="assets/heroes-party.jpg" alt="Comitiva de Quatro Heróis" style="border-radius: 8px;" />
+      <h4 align="center">🛡️ A Comitiva das Quatro Classes</h4>
+      <p align="center"><em>Guerreiro, Mago, Clérigo e Ladino com trilhas independentes de evolução (níveis 1 a 6).</em></p>
+    </td>
+    <td width="50%">
+      <img src="assets/dice-tray.jpg" alt="Dados de Osso e Obsidiana" style="border-radius: 8px;" />
+      <h4 align="center">🎲 O Destino nos Dados (Drafting)</h4>
+      <p align="center"><em>6 dados por rodada (3 brancos, 3 pretos). Escolha até 3 para andar, subir de nível ou forjar itens.</em></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="assets/potion-elixir.jpg" alt="Poções Alquímicas" style="border-radius: 8px;" />
+      <h4 align="center">🧪 Alquimia & Poções Vitais</h4>
+      <p align="center"><em>Destile elixires carmesins para recuperar instantaneamente 2 corações de vida.</em></p>
+    </td>
+    <td width="50%">
+      <img src="assets/treasure-chest.jpg" alt="Baú de Tesouro com Gemas" style="border-radius: 8px;" />
+      <h4 align="center">💎 Gemas Preciosas & Artefatos</h4>
+      <p align="center"><em>Forje itens mágicos e saqueie cofres esquecidos (+2 pontos de Glória por tesouro).</em></p>
+    </td>
+  </tr>
+</table>
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 📜 Regras Canônicas Implementadas
 
-O projeto é dividido em camadas estritamente desacopladas:
+> [!IMPORTANT]
+> **Fidelidade Mecânica Integral:** Todas as regras da edição base de *Paper Dungeons* foram transcritas em funções puras testadas via TDD.
+
+1. **8 Rodadas Estruturadas:** Cada partida transcorre em exatamente 8 rodadas com rolagem de dados e fase de perigo.
+2. **Fase de Perigo (Hazard Phase):** Se a rolagem inicial de 6 dados resultar em **3 ou mais crânios**, o grupo sofre 1 ferimento involuntário antes do rascunho de ações.
+3. **Movimentação Tática com BFS:** O dado de bota concede até 2 passos adjacentes. Paredes maciças de pedra bloqueiam passagens diretas (verificadas pelo grafo canônico do Mapa 1).
+4. **Sem Permadeath Prematuro:** A perda total de corações aplica uma **Penalidade de Ressurreição (-9 Glória no final)** e reanima o grupo para completar toda a expedição.
+5. **Segurança de Decisão (Undo / Redo):** Ensaie movimentos no tabuleiro 3D, veja o desfecho do combate e desfaça livremente antes de acionar *Confirmar Rodada*.
+6. **Confrontos com Chefes Solo (Rodadas 3, 6 e 8):**
+   - **Rodada 3 — Mantícora:** Poder Requerido `6` (Tier 1: +8 Glória) / `4` (Tier 2: +4 Glória) / Derrota: 2 ferimentos.
+   - **Rodada 6 — Tirano Ocular:** Poder Requerido `10` (Tier 1: +12 Glória) / `7` (Tier 2: +6 Glória) / Derrota: 3 ferimentos.
+   - **Rodada 8 — Dragão Vermelho Ancião:** Poder Requerido `14` (Tier 1: +16 Glória) / `10` (Tier 2: +8 Glória) / Derrota: 4 ferimentos.
+7. **Apuração de Glória Final:**
+   $$\text{Glória Líquida} = \text{Monstros} + \text{Chefes} + \text{Gemas} \times 2 + \text{Artefatos} \times 2 + \sum \text{Níveis} - (\text{Ressurreições} \times 9)$$
+
+---
+
+## 🏗️ Arquitetura de Software
 
 ```
-src/
-├── engine/               # Domínio puro (Pure TypeScript - 100% testável)
-│   ├── types.ts          # Modelos de dados e contratos
-│   ├── dice.ts           # Rolagem, símbolos e validação de draft
-│   ├── heroes.ts         # Progressão das 4 classes e penalidade de morte
-│   ├── dungeon.ts        # Matriz do Mapa 1, grafos e cálculo de movimento (BFS)
-│   ├── combat.ts         # Resolutores de Minions e Chefes solo
-│   └── scoring.ts        # Apuração da pontuação de Glória final
+tiny-dungeon/
+├── hero.html                 # Hero Landing Page de alta fidelidade visual
+├── public/assets/            # Ativos visuais e mídias cinematográficas
+├── src/
+│   ├── engine/               # Domínio Puro TypeScript (100% testável sem DOM)
+│   │   ├── types.ts          # Contratos e tipos formais
+│   │   ├── dice.ts           # Rascunho de dados, faces e fase de perigo
+│   │   ├── heroes.ts         # As 4 classes, vida, poções e ressurreição
+│   │   ├── dungeon.ts        # Matriz 4x4 do Mapa 1, paredes e BFS
+│   │   ├── combat.ts         # Resolutores de Minions e Chefes solo
+│   │   └── scoring.ts        # Cálculo exaustivo de glória final
+│   │
+│   ├── store/                # Máquina de Estados
+│   │   └── gameStore.ts      # Zustand com pilha de snapshot para Undo/Redo e autosave
+│   │
+│   └── components/
+│       ├── canvas/           # Gráficos 3D em Three.js / React Three Fiber
+│       │   ├── DungeonCanvas.tsx   # Viewport com câmera isométrica
+│       │   ├── RoomTile3D.tsx      # Lajes chanfradas e marcadores luminosos
+│       │   ├── Walls3D.tsx         # Paredes perimetrais e interiores
+│       │   ├── TorchLight.tsx      # Tochas com cintilação procedural
+│       │   └── PartyPawn3D.tsx     # Marcador de coordenadas do grupo
+│       │
+│       └── ui/               # Interface DOM Dark Luxury (Tailwind CSS)
+│           ├── HUD.tsx             # Barra de status superior e vitalidade
+│           ├── EmberLedger.tsx     # The Ember Measure (livro dos heróis)
+│           ├── DiceTray.tsx        # Bandeja interativa dos 6 dados
+│           ├── CombatLog.tsx       # Registro narrativo de exploração
+│           └── EndGameModal.tsx    # Certificado laureado de glória
 │
-├── store/                # Coordenação de Estado
-│   └── gameStore.ts      # Store reativa Zustand com pilha de Undo/Redo e autosave
-│
-└── components/
-    ├── canvas/           # Camada Gráfica 3D (React Three Fiber + Three.js)
-    │   ├── DungeonCanvas.tsx  # Viewport WebGL e câmera isométrica
-    │   ├── RoomTile3D.tsx     # Lajes de pedra, marcadores e destaques de rota
-    │   ├── Walls3D.tsx        # Paredes perimetrais e interiores
-    │   ├── TorchLight.tsx     # Tochas com cintilação procedural orgânica
-    │   └── PartyPawn3D.tsx    # Marcador luminoso do grupo
-    │
-    └── ui/               # Interface DOM (Tailwind CSS + Lucide Icons)
-        ├── HUD.tsx            # Barra superior (vitalidade, rodada, chefe iminente)
-        ├── EmberLedger.tsx    # "The Ember Measure" (grimório de heróis e alquimia)
-        ├── DiceTray.tsx       # Bandeja interativa dos 6 dados rolados
-        ├── CombatLog.tsx      # Registro narrativo de exploração e dano
-        └── EndGameModal.tsx   # Certificado laureado de glória final
+└── tests/                    # Suíte de Testes Automatizados (Vitest)
+    ├── smoke.test.ts
+    ├── engine/               # Testes unitários do domínio
+    ├── store/                # Testes da máquina de estado
+    ├── components/           # Testes de renderização
+    └── integration/          # Simulação completa da partida de 8 rodadas
 ```
 
 ---
 
-## 🚀 Como Executar
+## 🚀 Como Executar Localmente
 
-### Pré-requisitos
-- **Node.js** v18+ (recomendado v20 ou v24)
-- **npm** v10+
-
-### Instalação
+### 1. Clonar e Instalar Dependências
 ```bash
 git clone https://github.com/two2dope/tiny-dungeon.git
 cd tiny-dungeon
 npm install
 ```
 
-### Desenvolvimento
-Inicie o servidor de desenvolvimento local:
+### 2. Iniciar Servidor de Desenvolvimento
 ```bash
 npm run dev
 ```
-- **Jogo Principal (3D WebGL + HUD):** [http://localhost:5173/](http://localhost:5173/)
-- **Hero Showcase Landing Page:** [http://localhost:5173/hero.html](http://localhost:5173/hero.html)
+- **Jogo Principal:** [http://localhost:5173/](http://localhost:5173/)
+- **Hero Page Showcase:** [http://localhost:5173/hero.html](http://localhost:5173/hero.html)
 
----
-
-## 🎨 Hero Showcase & Identidade Visual
-
-O projeto inclui uma **Hero Landing Page** dedicada ([`hero.html`](hero.html)) criada para demonstrar o universo do jogo no GitHub e na web com diretrizes modernas:
-- **Estética Vesperfall (ref-c):** Paleta *luxury dark* com fundos de obsidiana (`#08090c`), tochas vivas em âmbar (`#ff6b35`) e detalhes em ouro imperial (`#d4af37`).
-- **Performance Web (Modern Web Guidance):** Carregamento prioritário de Largest Contentful Paint (`fetchpriority="high"`) e deferimento de mídias secundárias (`loading="lazy"`).
-- **Refinamento Háptico (Make Interfaces Feel Better):** Micro-interações táteis nos botões (`active:scale-[0.97]`), quebras balanceadas de texto (`text-wrap: balance` e `text-wrap: pretty`) e sombras atmosféricas sobrepostas.
-
----
-
-### Executar Testes Automatizados
-Roda toda a suíte de testes unitários e de integração com Vitest:
+### 3. Rodar os Testes Automatizados
 ```bash
 npm test
 ```
+> Executa 22 testes unitários e de integração com cobertura total dos cenários de regra.
 
-### Build de Produção
-Gera o pacote otimizado para deploy:
+### 4. Compilar para Produção
 ```bash
 npm run build
 ```
 
 ---
 
-## 📜 Especificações & Documentação Técnica
+## 📜 Documentação Técnica
 - [Documento de Design / Spec](docs/superpowers/specs/2026-10-23-tiny-dungeon-design.md)
 - [Plano de Implementação Detalhado](docs/superpowers/plans/2026-10-23-tiny-dungeon-implementation-plan.md)
+- [Registro de Estado do Projeto](STATE.md)
 
 ---
 
-## 🗺️ Roadmap de Expansão (v1.1+)
-- [ ] Conteúdo da expansão *Sidequest* (rios subterrâneos, sargentos, baús dourados e artefatos lendários).
-- [ ] Mapas canônicos adicionais (Mapas 2 a 12).
-- [ ] Sonoplastia procedural/ambientação de tochas e rolagens de dados.
-- [ ] Exportação de certificado de glória em imagem PNG / PDF.
+## ⚖️ Licença
+Distribuído sob a licença **MIT**. Criado com inspiração no universo de *Paper Dungeons* e na direção de arte de *Vesperfall*.
