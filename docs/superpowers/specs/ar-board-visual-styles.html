@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR Board - Tiny Dungeon: Curadoria de Estilos Visuais</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #0b0c10;
+      --bg-surface: #14161d;
+      --bg-card: #191c26;
+      --border-subtle: #262a38;
+      --border-highlight: #3e445b;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent-gold: #e5a93c;
+      --accent-gold-glow: rgba(229, 169, 60, 0.25);
+      --approve: #10b981;
+      --approve-bg: rgba(16, 185, 129, 0.12);
+      --reject: #f43f5e;
+      --reject-bg: rgba(244, 63, 94, 0.12);
+      --standby: #f59e0b;
+      --standby-bg: rgba(245, 158, 11, 0.12);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      padding: 2rem 1.5rem;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid var(--border-subtle);
+      padding-bottom: 1.75rem;
+      margin-bottom: 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1.5rem;
+    }
+
+    .header-titles h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 2.25rem;
+      color: #fff;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      text-wrap: balance;
+    }
+
+    .header-titles p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      max-width: 720px;
+    }
+
+    .badge-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-highlight);
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      color: var(--accent-gold);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .metrics-panel {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .metric-chip {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      padding: 0.6rem 1rem;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      min-width: 105px;
+    }
+
+    .metric-chip .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .metric-chip .value {
+      font-family: 'Cinzel', serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .actions-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      background: var(--bg-surface);
+      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 0.5rem 0.9rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .tab-btn.active {
+      color: #fff;
+      background: var(--border-subtle);
+      border-color: var(--border-highlight);
+    }
+
+    .tab-btn:focus-visible, .btn-primary:focus-visible, .btn-vote:focus-visible {
+      outline: 2px solid var(--accent-gold);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #d99726, #b87712);
+      color: #0b0c10;
+      font-weight: 700;
+      padding: 0.65rem 1.4rem;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+      min-height: 44px;
+      transition: transform 0.1s ease, filter 0.2s ease;
+      box-shadow: 0 4px 14px var(--accent-gold-glow);
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
+    }
+
+    .btn-primary:hover {
+      filter: brightness(1.1);
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .style-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+    }
+
+    .style-card:hover {
+      border-color: var(--border-highlight);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .style-card.status-approved {
+      border-color: var(--approve);
+      box-shadow: 0 0 0 1px var(--approve);
+    }
+
+    .style-card.status-rejected {
+      border-color: var(--reject);
+      opacity: 0.65;
+    }
+
+    .style-card.status-rejected:hover {
+      opacity: 0.9;
+    }
+
+    .style-card.status-standby {
+      border-color: var(--standby);
+    }
+
+    /* Visual Simulation Canvas */
+    .card-preview {
+      height: 180px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      background-size: cover;
+      background-position: center;
+    }
+
+    .preview-iso-grid {
+      position: absolute;
+      inset: 0;
+      opacity: 0.85;
+      pointer-events: none;
+    }
+
+    .preview-badge {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      background: rgba(11, 12, 16, 0.85);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .preview-tagline {
+      position: relative;
+      z-index: 2;
+      font-family: 'Cinzel', serif;
+      font-size: 1.15rem;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+    }
+
+    .card-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: 1rem;
+    }
+
+    .card-header-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 0.5rem;
+    }
+
+    .card-title-group h2 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.25rem;
+      color: #fff;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .card-subtext {
+      color: var(--text-muted);
+      font-size: 0.825rem;
+      font-weight: 500;
+    }
+
+    .card-traits {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+
+    .trait-pill {
+      font-size: 0.72rem;
+      padding: 0.2rem 0.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 4px;
+      color: #cbd5e1;
+    }
+
+    .card-desc {
+      font-size: 0.875rem;
+      color: #94a3b8;
+      line-height: 1.45;
+    }
+
+    .voting-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: auto;
+      padding-top: 0.5rem;
+    }
+
+    .btn-vote {
+      flex: 1;
+      min-height: 44px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-surface);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+    }
+
+    .btn-vote:active {
+      transform: scale(0.97);
+    }
+
+    .btn-approve:hover, .btn-approve[aria-pressed="true"] {
+      background: var(--approve-bg);
+      border-color: var(--approve);
+      color: #34d399;
+    }
+
+    .btn-reject:hover, .btn-reject[aria-pressed="true"] {
+      background: var(--reject-bg);
+      border-color: var(--reject);
+      color: #fb7185;
+    }
+
+    .btn-standby:hover, .btn-standby[aria-pressed="true"] {
+      background: var(--standby-bg);
+      border-color: var(--standby);
+      color: #fbbf24;
+    }
+
+    .comment-area {
+      margin-top: 0.75rem;
+    }
+
+    .comment-label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 0.35rem;
+      font-weight: 500;
+    }
+
+    .comment-input {
+      width: 100%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      color: #f1f5f9;
+      font-family: inherit;
+      font-size: 0.825rem;
+      padding: 0.5rem 0.65rem;
+      resize: vertical;
+      min-height: 48px;
+      transition: border-color 0.15s;
+    }
+
+    .comment-input:focus {
+      outline: none;
+      border-color: var(--accent-gold);
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(6px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      padding: 1.5rem;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-content {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-highlight);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 650px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.6);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 {
+      font-family: 'Cinzel', serif;
+      font-size: 1.35rem;
+      color: #fff;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .export-box {
+      width: 100%;
+      height: 200px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: #38bdf8;
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 0.75rem;
+      white-space: pre-wrap;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: #10b981;
+      color: #0b0c10;
+      font-weight: 700;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      display: none;
+      z-index: 200;
+      animation: fadeIn 0.2s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div class="header-titles">
+      <div class="badge-bar">
+        <span>⚔️ AR BOARD / TREINAMENTO DE PALADAR</span>
+        <span>•</span>
+        <span>TINY DUNGEON 3D</span>
+      </div>
+      <h1 style="margin-top: 0.5rem;">Direções Estéticas & Estilos Visuais</h1>
+      <p>Curadoria em lote (Framework 4D) para calibrar a identidade visual do jogo web. Avalie as 10 direções, vote com <strong>A</strong> (Aprovar), <strong>R</strong> (Rejeitar) ou <strong>S</strong> (Standby) e anote suas justificativas.</p>
+    </div>
+
+    <div class="metrics-panel" aria-live="polite">
+      <div class="metric-chip">
+        <span class="label">Total</span>
+        <span class="value" id="count-total">10</span>
+      </div>
+      <div class="metric-chip">
+        <span class="label" style="color: #34d399;">Aprovados</span>
+        <span class="value" id="count-approved" style="color: #34d399;">0</span>
+      </div>
+      <div class="metric-chip">
+        <span class="label" style="color: #fb7185;">Rejeitados</span>
+        <span class="value" id="count-rejected" style="color: #fb7185;">0</span>
+      </div>
+      <div class="metric-chip">
+        <span class="label" style="color: #fbbf24;">Standby</span>
+        <span class="value" id="count-standby" style="color: #fbbf24;">0</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="actions-bar">
+    <div class="filter-tabs" role="tablist">
+      <button class="tab-btn active" data-filter="all" role="tab">Todos (10)</button>
+      <button class="tab-btn" data-filter="pending" role="tab">Pendentes</button>
+      <button class="tab-btn" data-filter="approved" role="tab">Aprovados</button>
+      <button class="tab-btn" data-filter="rejected" role="tab">Rejeitados</button>
+      <button class="tab-btn" data-filter="standby" role="tab">Standby</button>
+    </div>
+
+    <button class="btn-primary" id="btn-export">
+      <span>💾</span>
+      <span>Terminei / Exportar Decisões</span>
+    </button>
+  </div>
+
+  <main class="board-grid" id="board-grid">
+    <!-- 10 Visual Style Cards injected by JS -->
+  </main>
+</div>
+
+<!-- Modal Export -->
+<div class="modal-backdrop" id="export-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3 id="modal-title">Decisões de Curadoria (Golden Loop)</h3>
+      <button class="modal-close" id="modal-close" aria-label="Fechar modal">&times;</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size: 0.9rem; color: var(--text-muted);">Copie este resumo consolidado para continuar o pipeline de implementação com o paladar calibrado:</p>
+      <textarea class="export-box" id="export-text" readonly></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.5rem;">
+        <button class="btn-primary" id="btn-copy-modal">Copiar para Área de Transferência</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Copiado com sucesso!</div>
+
+<script>
+const STYLES = [
+  {
+    id: "style-1",
+    title: "01. Vesperfall Obsidian & Cobre",
+    badge: "REFERÊNCIA DIRETA REF-C",
+    tagline: "Dark Luxury & Tochas Dramáticas",
+    palette: ["#0b0c10", "#181a24", "#d97706", "#f59e0b", "#e2e8f0"],
+    traits: ["Pedra Basáltica", "Chamas Quentes", "Tipografia Cinzel", "HUD Minimalista"],
+    desc: "Inspirado diretamente no ref-c (Vesperfall). Masmorra em tons profundos de ardósia e obsidiana, iluminada por tochas com sombras longas e dinâmicas. HUD com ares de menu de alta joalheria gótica.",
+    gradient: "linear-gradient(135deg, #0b0c10 0%, #1c1511 50%, #451a03 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="torchGlow1" cx="65%" cy="35%" r="60%">
+            <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.8"/>
+            <stop offset="40%" stop-color="#b45309" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#0b0c10" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="400" height="180" fill="#0c0d14"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#151821" stroke="#2c3245" stroke-width="2"/>
+        <path d="M 200,170 L 200,180 L 340,110 L 340,100 Z" fill="#0f1118"/>
+        <path d="M 200,170 L 200,180 L 60,110 L 60,100 Z" fill="#0a0c10"/>
+        <circle cx="260" cy="80" r="120" fill="url(#torchGlow1)"/>
+        <rect x="256" y="65" width="8" height="24" fill="#78350f" rx="2"/>
+        <circle cx="260" cy="62" r="6" fill="#fbbf24"/>
+        <circle cx="260" cy="60" r="3" fill="#fff"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-2",
+    title: "02. Cripta Grimdark & Velas de Cera",
+    badge: "SOULS-LIKE / BLASPHEMOUS",
+    tagline: "Montanhas de Velas & Ouro Velho",
+    palette: ["#08080a", "#261c14", "#b45309", "#d97706", "#78716c"],
+    traits: ["Cera Gotejante", "Névoa Volumétrica", "Arcos Góticos", "Clima Solene"],
+    desc: "Cenário sombrio povoado por nichos repletos de velas acesas e cera acumulada nos cantos. Tons de bronze desgastado, fumaça rasteira e luz quente pontual contrastando com pedras úmidas e frias.",
+    gradient: "linear-gradient(135deg, #09090b 0%, #1f150f 60%, #7c2d12 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#08080a"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#1b1715" stroke="#3d3029" stroke-width="2"/>
+        <ellipse cx="200" cy="100" rx="90" ry="45" fill="#f59e0b" fill-opacity="0.15"/>
+        <rect x="190" y="85" width="4" height="16" fill="#fef3c7"/>
+        <rect x="198" y="90" width="4" height="12" fill="#fef3c7"/>
+        <rect x="206" y="82" width="4" height="19" fill="#fef3c7"/>
+        <circle cx="192" cy="82" r="3" fill="#f59e0b"/>
+        <circle cx="200" cy="87" r="3" fill="#f59e0b"/>
+        <circle cx="208" cy="79" r="3" fill="#f59e0b"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-3",
+    title: "03. Diorama Isométrico Tilt-Shift",
+    badge: "TINY EPIC / MAQUETE VIVA",
+    tagline: "Sensação Tátil de Peças Reais",
+    palette: ["#1e293b", "#334155", "#38bdf8", "#f1f5f9", "#0f172a"],
+    traits: ["Chanfros Marcados", "Bordas Polidas", "Profundidade de Campo", "Pinos de Madeira"],
+    desc: "Visual que lembra uma mesa de RPG física iluminada por um refletor de estúdio. Peões e pisos parecem miniaturas artesanais de resina esculpida, com textura fosca agradável e iluminação difusa.",
+    gradient: "linear-gradient(135deg, #0f172a 0%, #1e293b 70%, #0369a1 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#0f172a"/>
+        <path d="M 200,35 L 330,95 L 200,155 L 70,95 Z" fill="#1e293b" stroke="#64748b" stroke-width="3"/>
+        <path d="M 200,155 L 200,175 L 330,115 L 330,95 Z" fill="#0f172a"/>
+        <path d="M 200,155 L 200,175 L 70,115 L 70,95 Z" fill="#020617"/>
+        <circle cx="200" cy="95" r="16" fill="#38bdf8" stroke="#f0f9ff" stroke-width="2"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-4",
+    title: "04. Brasas Vulcânicas & Abismo",
+    badge: "UNDERDARK / NETHER",
+    tagline: "Fissuras Incandescentes no Chão",
+    palette: ["#0a0505", "#2a0e0e", "#dc2626", "#ea580c", "#fbbf24"],
+    traits: ["Lava Subterrânea", "Partículas de Brasa", "Contraste Agressivo", "Luz Inferior"],
+    desc: "As salas são placas de rocha flutuando sobre fendas avermelhadas. A luz principal sobe do abismo, projetando silhuetas dramáticas nas colunas e nos heróis com faíscas flutuando na tela.",
+    gradient: "linear-gradient(135deg, #050202 0%, #3b0d0c 50%, #b91c1c 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#0a0505"/>
+        <path d="M 190,40 L 320,100 L 210,160 L 80,100 Z" fill="#1f1111" stroke="#ef4444" stroke-width="1.5"/>
+        <path d="M 120,110 Q 150,90 190,120 T 260,95" stroke="#f97316" stroke-width="3" fill="none"/>
+        <circle cx="150" cy="70" r="2.5" fill="#fde047"/>
+        <circle cx="230" cy="85" r="3" fill="#f97316"/>
+        <circle cx="180" cy="60" r="2" fill="#ef4444"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-5",
+    title: "05. Pergaminho Iluminado & Xilogravura",
+    badge: "GRIMÓRIO MEDIEVAL",
+    tagline: "Estética de Mapa Antigo em Relevo",
+    palette: ["#1c1917", "#292524", "#d97706", "#fef3c7", "#78716c"],
+    traits: ["Textura de Papiro", "Hatching em Hachuras", "Tinta Dourada", "Ilustração Clássica"],
+    desc: "Combina renderização 3D com shaders de gravura medieval e hachuras a nanquim sobre pedra cor de osso/pergaminho escuro. Evoca a sensação de estar jogando dentro das páginas de um tomo esquecido.",
+    gradient: "linear-gradient(135deg, #1c1917 0%, #292524 60%, #78350f 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#181513"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#2d2621" stroke="#d4af37" stroke-width="2"/>
+        <line x1="120" y1="90" x2="160" y2="130" stroke="#78350f" stroke-width="1"/>
+        <line x1="130" y1="85" x2="170" y2="125" stroke="#78350f" stroke-width="1"/>
+        <line x1="140" y1="80" x2="180" y2="120" stroke="#78350f" stroke-width="1"/>
+        <circle cx="200" cy="100" r="20" fill="none" stroke="#eab308" stroke-dasharray="4 2"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-6",
+    title: "06. Low-Poly Nórdico & Fogo Fátuo",
+    badge: "FROST & WISP",
+    tagline: "Ciano Espectral & Ardósia Glacial",
+    palette: ["#020617", "#0f172a", "#06b6d4", "#22d3ee", "#e0f2fe"],
+    traits: ["Tochas Azuis/Ciano", "Gelo Translúcido", "Pedra Ártica", "Névoa Suave"],
+    desc: "Masmorra gélida com iluminação mágica sobrenatural em tons de ciano e turquesa. Pisos com placas que lembram pedra ardósia fria e runas azuis pulsando suavemente ao redor dos portais.",
+    gradient: "linear-gradient(135deg, #020617 0%, #082f49 60%, #0e7490 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#020617"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#0b1726" stroke="#0284c7" stroke-width="2"/>
+        <ellipse cx="200" cy="100" rx="75" ry="35" fill="#06b6d4" fill-opacity="0.2"/>
+        <circle cx="200" cy="95" r="7" fill="#67e8f9"/>
+        <circle cx="200" cy="95" r="3" fill="#fff"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-7",
+    title: "07. Cel-Shaded Darkest Dungeon",
+    badge: "ALTO CONTRASTE / GRAPHIC NOVEL",
+    tagline: "Preto Absoluto, Tinta & Carmesim",
+    palette: ["#000000", "#18181b", "#dc2626", "#fafafa", "#52525b"],
+    traits: ["Linhas Fortes de Contorno", "Sombras Duras", "Acentos em Vermelho Sangue", "Dramático"],
+    desc: "Estilo inspirado em H.P. Lovecraft e quadrinhos de Mike Mignola. Paredes e pisos têm traços pretos expressivos e hachuras grossas, onde apenas pontos de perigo e glória ganham cores vivas saturadas.",
+    gradient: "linear-gradient(135deg, #000000 0%, #18181b 70%, #991b1b 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#000000"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#18181b" stroke="#fafafa" stroke-width="4"/>
+        <polygon points="200,170 340,100 340,120 200,180" fill="#09090b" stroke="#fafafa" stroke-width="3"/>
+        <circle cx="200" cy="100" r="14" fill="#dc2626" stroke="#fafafa" stroke-width="3"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-8",
+    title: "08. Mecanismo Ocultista & Latão",
+    badge: "DUNGEON CLOCKWORK",
+    tagline: "Engrenagens Douradas & Bronze",
+    palette: ["#14110e", "#2c221a", "#b45309", "#d97706", "#fef08a"],
+    traits: ["Bordas de Latão", "Mecânica Rúnica", "Lâmpadas de Óleo", "Precisão Suíça"],
+    desc: "Uma masmorra construída como um relógio gigante subterrâneo. Trilhos de latão, molduras metálicas douradas em torno das portas e lamparinas com óleo mineral emitindo claridade dourada polida.",
+    gradient: "linear-gradient(135deg, #14110e 0%, #3e2817 60%, #ca8a04 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#14110e"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#241a12" stroke="#d97706" stroke-width="3"/>
+        <circle cx="200" cy="100" r="30" fill="none" stroke="#ca8a04" stroke-width="2" stroke-dasharray="6 3"/>
+        <circle cx="200" cy="100" r="8" fill="#ca8a04"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-9",
+    title: "09. Catacumbas Esmeralda & Musgo",
+    badge: "ELDRITCH CRYPT",
+    tagline: "Bioluminescência Verdejante",
+    palette: ["#022c22", "#064e3b", "#059669", "#34d399", "#a7f3d0"],
+    traits: ["Musgo Brilhante", "Tochas Verdes", "Pedra Envelhecida", "Misterioso"],
+    desc: "Salas de pedra antiga tomadas por musgo fluorescente e tochas com chamas alquímicas esmeralda. Uma sensação de ruína mística ancestral esquecida pelo tempo, com contraste orgânico marcante.",
+    gradient: "linear-gradient(135deg, #021c15 0%, #064e3b 60%, #10b981 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#021510"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#052e24" stroke="#10b981" stroke-width="2"/>
+        <ellipse cx="200" cy="100" rx="80" ry="38" fill="#10b981" fill-opacity="0.18"/>
+        <circle cx="160" cy="85" r="4" fill="#34d399"/>
+        <circle cx="240" cy="115" r="5" fill="#34d399"/>
+      </svg>
+    `
+  },
+  {
+    id: "style-10",
+    title: "10. Retrô Dithered Dark Fantasy",
+    badge: "PS1 NOSTALGIA POLIDA",
+    tagline: "Low-Poly Retrô com UI Moderna",
+    palette: ["#111827", "#1f2937", "#4b5563", "#fbbf24", "#f3f4f6"],
+    traits: ["Texturas Dithered", "Geometria Angular", "HUD Cristalino", "Charme Retrô"],
+    desc: "A nostalgia tátil dos clássicos do PS1/Saturn (como Vagrant Story), mas renderizado a 60fps com iluminação moderna e interface perfeitamente nítida em alta definição sobreposta ao canvas.",
+    gradient: "linear-gradient(135deg, #111827 0%, #1f2937 60%, #475569 100%)",
+    svgContent: `
+      <svg class="preview-iso-grid" viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="180" fill="#111827"/>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="#1f2937" stroke="#9ca3af" stroke-width="2"/>
+        <pattern id="dither" width="4" height="4" patternUnits="userSpaceOnUse">
+          <rect width="2" height="2" fill="#374151"/>
+          <rect x="2" y="2" width="2" height="2" fill="#374151"/>
+        </pattern>
+        <path d="M 200,30 L 340,100 L 200,170 L 60,100 Z" fill="url(#dither)" opacity="0.4"/>
+        <rect x="195" y="90" width="10" height="20" fill="#fbbf24"/>
+      </svg>
+    `
+  }
+];
+
+// State
+const state = {
+  votes: {}, // styleId -> 'approved' | 'rejected' | 'standby'
+  comments: {}, // styleId -> string
+  activeFilter: 'all'
+};
+
+// Initialize from localStorage if exists
+try {
+  const saved = localStorage.getItem('tiny_dungeon_ar_board_votes');
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    if (parsed.votes) state.votes = parsed.votes;
+    if (parsed.comments) state.comments = parsed.comments;
+  }
+} catch (e) {
+  console.warn('Storage read error', e);
+}
+
+function saveState() {
+  try {
+    localStorage.setItem('tiny_dungeon_ar_board_votes', JSON.stringify({
+      votes: state.votes,
+      comments: state.comments
+    }));
+  } catch (e) {}
+  updateMetrics();
+}
+
+function updateMetrics() {
+  const total = STYLES.length;
+  let approved = 0, rejected = 0, standby = 0;
+  for (const s of STYLES) {
+    const v = state.votes[s.id];
+    if (v === 'approved') approved++;
+    else if (v === 'rejected') rejected++;
+    else if (v === 'standby') standby++;
+  }
+  document.getElementById('count-total').textContent = total;
+  document.getElementById('count-approved').textContent = approved;
+  document.getElementById('count-rejected').textContent = rejected;
+  document.getElementById('count-standby').textContent = standby;
+}
+
+function renderBoard() {
+  const grid = document.getElementById('board-grid');
+  grid.innerHTML = '';
+
+  STYLES.forEach(style => {
+    const currentVote = state.votes[style.id];
+    const isApproved = currentVote === 'approved';
+    const isRejected = currentVote === 'rejected';
+    const isStandby = currentVote === 'standby';
+
+    // Filter logic
+    if (state.activeFilter === 'approved' && !isApproved) return;
+    if (state.activeFilter === 'rejected' && !isRejected) return;
+    if (state.activeFilter === 'standby' && !isStandby) return;
+    if (state.activeFilter === 'pending' && currentVote) return;
+
+    let statusClass = '';
+    if (isApproved) statusClass = 'status-approved';
+    else if (isRejected) statusClass = 'status-rejected';
+    else if (isStandby) statusClass = 'status-standby';
+
+    const card = document.createElement('article');
+    card.className = `style-card ${statusClass}`;
+    card.id = `card-${style.id}`;
+    card.setAttribute('role', 'group');
+    card.setAttribute('aria-label', `${style.title} - ${style.tagline}`);
+
+    card.innerHTML = `
+      <div class="card-preview" style="background: ${style.gradient};">
+        ${style.svgContent}
+        <span class="preview-badge">${style.badge}</span>
+        <div class="preview-tagline">${style.tagline}</div>
+      </div>
+
+      <div class="card-body">
+        <div class="card-header-info">
+          <div class="card-title-group">
+            <h2>${style.title}</h2>
+          </div>
+        </div>
+
+        <div class="card-traits">
+          ${style.traits.map(t => `<span class="trait-pill">${t}</span>`).join('')}
+        </div>
+
+        <p class="card-desc">${style.desc}</p>
+
+        <div class="voting-bar">
+          <button class="btn-vote btn-approve" data-id="${style.id}" data-action="approved" aria-pressed="${isApproved}">
+            <span>✓</span> <span>Aprovar (A)</span>
+          </button>
+          <button class="btn-vote btn-reject" data-id="${style.id}" data-action="rejected" aria-pressed="${isRejected}">
+            <span>✗</span> <span>Rejeitar (R)</span>
+          </button>
+          <button class="btn-vote btn-standby" data-id="${style.id}" data-action="standby" aria-pressed="${isStandby}">
+            <span>⏳</span> <span>Standby (S)</span>
+          </button>
+        </div>
+
+        <div class="comment-area">
+          <label class="comment-label" for="comment-${style.id}">Justificativa técnica / Paladar estético:</label>
+          <textarea class="comment-input" id="comment-${style.id}" data-id="${style.id}" placeholder="Por que aprova, rejeita ou quer alterar este estilo…">${state.comments[style.id] || ''}</textarea>
+        </div>
+      </div>
+    `;
+
+    grid.appendChild(card);
+  });
+
+  attachEvents();
+  updateMetrics();
+}
+
+function attachEvents() {
+  document.querySelectorAll('.btn-vote').forEach(btn => {
+    btn.onclick = () => {
+      const id = btn.dataset.id;
+      const action = btn.dataset.action;
+      if (state.votes[id] === action) {
+        delete state.votes[id]; // Toggle off
+      } else {
+        state.votes[id] = action;
+      }
+      saveState();
+      renderBoard();
+    };
+  });
+
+  document.querySelectorAll('.comment-input').forEach(textarea => {
+    textarea.oninput = (e) => {
+      const id = e.target.dataset.id;
+      state.comments[id] = e.target.value;
+      saveState();
+    };
+  });
+}
+
+// Filter tabs
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.activeFilter = btn.dataset.filter;
+    renderBoard();
+  };
+});
+
+// Keyboard shortcuts (A, R, S on hover/focus)
+let hoveredCardId = null;
+document.addEventListener('mouseover', (e) => {
+  const card = e.target.closest('.style-card');
+  hoveredCardId = card ? card.id.replace('card-', '') : null;
+});
+
+document.addEventListener('keydown', (e) => {
+  // Ignore inside textareas or inputs
+  if (['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)) return;
+
+  const key = e.key.toUpperCase();
+  if (['A', 'R', 'S'].includes(key) && hoveredCardId) {
+    e.preventDefault();
+    const action = key === 'A' ? 'approved' : key === 'R' ? 'rejected' : 'standby';
+    if (state.votes[hoveredCardId] === action) {
+      delete state.votes[hoveredCardId];
+    } else {
+      state.votes[hoveredCardId] = action;
+    }
+    saveState();
+    renderBoard();
+  }
+});
+
+// Export Modal & Clipboard logic with triple fallback
+const modal = document.getElementById('export-modal');
+const modalClose = document.getElementById('modal-close');
+const exportText = document.getElementById('export-text');
+const toast = document.getElementById('toast');
+
+function generateExportData() {
+  const approvedList = [];
+  const rejectedList = [];
+  const standbyList = [];
+
+  STYLES.forEach(s => {
+    const v = state.votes[s.id];
+    const comment = state.comments[s.id] || "(Sem comentário)";
+    const item = `• [${s.title}] (${s.tagline})\n  Justificativa: ${comment}`;
+    if (v === 'approved') approvedList.push(item);
+    else if (v === 'rejected') rejectedList.push(item);
+    else if (v === 'standby') standbyList.push(item);
+  });
+
+  return `### RESUMO DE CURADORIA AR BOARD - TINY DUNGEON 3D
+Data: ${new Date().toISOString().split('T')[0]}
+
+✅ ESTILOS APROVADOS (${approvedList.length}):
+${approvedList.join('\n\n') || "Nenhum aprovado até o momento."}
+
+❌ ESTILOS REJEITADOS (${rejectedList.length}):
+${rejectedList.join('\n\n') || "Nenhum rejeitado."}
+
+⏳ EM STANDBY (${standbyList.length}):
+${standbyList.join('\n\n') || "Nenhum em standby."}
+
+---
+JSON ESTRUTURADO:
+${JSON.stringify({ votes: state.votes, comments: state.comments }, null, 2)}`;
+}
+
+document.getElementById('btn-export').onclick = () => {
+  const text = generateExportData();
+  exportText.value = text;
+  modal.classList.add('open');
+};
+
+modalClose.onclick = () => modal.classList.remove('open');
+modal.onclick = (e) => {
+  if (e.target === modal) modal.classList.remove('open');
+};
+
+document.getElementById('btn-copy-modal').onclick = () => {
+  const text = exportText.value;
+  copyToClipboardFallback(text);
+};
+
+function copyToClipboardFallback(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(showToast).catch(() => fallbackExecCopy(text));
+  } else {
+    fallbackExecCopy(text);
+  }
+}
+
+function fallbackExecCopy(text) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast();
+  } catch (err) {
+    alert('Por favor, selecione e copie o texto manualmente no quadro.');
+  }
+}
+
+function showToast() {
+  toast.style.display = 'block';
+  setTimeout(() => { toast.style.display = 'none'; }, 2500);
+}
+
+// Initial render
+renderBoard();
+</script>
+</body>
+</html>
