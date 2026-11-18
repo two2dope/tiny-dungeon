@@ -56,11 +56,30 @@ export interface PixelSurfaceLike {
  */
 export function removeDarkStudioBackdrop(
   imageData: PixelSurfaceLike,
-  threshold = 48
+  threshold = 128
 ): void {
   const { data, width, height } = imageData;
   const total = width * height;
   if (total === 0) return;
+
+  // Sample perimeter corners for studio backdrop sanity awareness
+  const corners = [
+    0,
+    Math.max(0, width - 1),
+    Math.max(0, (height - 1) * width),
+    Math.max(0, height * width - 1),
+  ];
+  let sampleCount = 0;
+  let avgCornerLum = 0;
+  for (const cIdx of corners) {
+    const off = cIdx * 4;
+    if (data[off + 3] > 0) {
+      avgCornerLum += 0.299 * data[off] + 0.587 * data[off + 1] + 0.114 * data[off + 2];
+      sampleCount++;
+    }
+  }
+  const effectiveThreshold =
+    sampleCount > 0 ? Math.max(threshold, Math.min(138, avgCornerLum / sampleCount + 28)) : threshold;
 
   const visited = new Uint8Array(total);
   const removed = new Uint8Array(total);
@@ -75,9 +94,10 @@ export function removeDarkStudioBackdrop(
     const r = data[off];
     const g = data[off + 1];
     const b = data[off + 2];
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
     const maxCh = Math.max(r, g, b);
     const minCh = Math.min(r, g, b);
-    return r < threshold && g < threshold && b < threshold && maxCh - minCh < 22;
+    return lum < effectiveThreshold && maxCh - minCh < 38;
   };
 
   const enqueueIfBackdrop = (x: number, y: number) => {
@@ -112,8 +132,8 @@ export function removeDarkStudioBackdrop(
     if (cy < height - 1) enqueueIfBackdrop(cx, cy + 1);
   }
 
-  // Soft feather on immediate perimeter neighbors to eliminate dark edge halos
-  const featherCutoff = threshold + 18;
+  // Soft feather on immediate perimeter neighbors to eliminate dark studio halos
+  const featherCutoff = effectiveThreshold + 22;
   for (let i = 0; i < total; i++) {
     if (removed[i]) continue;
     const x = i % width;
@@ -127,10 +147,10 @@ export function removeDarkStudioBackdrop(
     if (!touchesRemoved) continue;
 
     const off = i * 4;
-    const avg = (data[off] + data[off + 1] + data[off + 2]) / 3;
+    const lum = 0.299 * data[off] + 0.587 * data[off + 1] + 0.114 * data[off + 2];
     const spread = Math.max(data[off], data[off + 1], data[off + 2]) - Math.min(data[off], data[off + 1], data[off + 2]);
-    if (avg < featherCutoff && spread < 26) {
-      data[off + 3] = Math.min(data[off + 3], 105);
+    if (lum < featherCutoff && spread < 40) {
+      data[off + 3] = Math.min(data[off + 3], 90);
     }
   }
 }
@@ -752,6 +772,46 @@ function drawArtwork(ctx: CanvasRenderingContext2D, kind: StandeeKind, colors: R
   ctx.restore();
 }
 
+function drawPropMedallionFrame(
+  ctx: CanvasRenderingContext2D,
+  isSengoku: boolean,
+  colors: ReturnType<typeof getKindColors>,
+  renderInner: () => void
+): void {
+  ctx.clearRect(0, 0, 256, 320);
+
+  // Peg / stand base tab at bottom
+  ctx.fillStyle = isSengoku ? '#451a03' : '#1e293b';
+  ctx.fillRect(68, 266, 120, 16);
+  ctx.strokeStyle = colors.rim;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(68, 266, 120, 16);
+
+  // Outer beveled coin medallion (parchment / silver)
+  ctx.beginPath();
+  ctx.arc(128, 176, 94, 0, Math.PI * 2);
+  ctx.fillStyle = isSengoku ? '#f5e9d0' : '#cbd5e1';
+  ctx.fill();
+  ctx.lineWidth = 7;
+  ctx.strokeStyle = '#1c1917';
+  ctx.stroke();
+
+  // Inner clipped disc
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(128, 176, 82, 0, Math.PI * 2);
+  ctx.clip();
+  renderInner();
+  ctx.restore();
+
+  // Colored metallic accent ring
+  ctx.beginPath();
+  ctx.arc(128, 176, 82, 0, Math.PI * 2);
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = colors.rim;
+  ctx.stroke();
+}
+
 function hydrateStandeeFromFlowAsset(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
@@ -776,40 +836,24 @@ function hydrateStandeeFromFlowAsset(
           const isSengoku = theme === 'sengoku';
           const colors = getKindColors(kind, isSengoku);
 
-          ctx.clearRect(0, 0, w, h);
+          drawPropMedallionFrame(ctx, isSengoku, colors, () => {
+            ctx.fillStyle = '#141210';
+            ctx.fillRect(42, 90, 172, 172);
 
-          // Beveled die-cut relic medallion token so dark iron/obsidian props stay solid
-          drawRoundedArchPath(ctx, 18, 18, 220, 280);
-          ctx.fillStyle = isSengoku ? '#f5e9d0' : '#cbd5e1';
-          ctx.fill();
-          ctx.lineWidth = 8;
-          ctx.strokeStyle = isSengoku ? '#291d14' : '#0f172a';
-          ctx.stroke();
+            const baseScale = Math.max(164 / natW, 164 / natH) * 1.22;
+            const drawW = Math.max(1, Math.round(natW * baseScale));
+            const drawH = Math.max(1, Math.round(natH * baseScale));
+            const dx = Math.round(128 - drawW / 2);
+            const dy = Math.round(176 - drawH / 2);
 
-          ctx.save();
-          drawRoundedArchPath(ctx, 28, 28, 200, 260);
-          ctx.clip();
-          ctx.fillStyle = '#141210';
-          ctx.fillRect(28, 28, 200, 260);
-
-          const scale = Math.max(200 / natW, 200 / natH);
-          const drawW = Math.max(1, Math.round(natW * scale));
-          const drawH = Math.max(1, Math.round(natH * scale));
-          const dx = Math.round((w - drawW) / 2);
-          const dy = Math.round(158 - drawH / 2);
-          ctx.drawImage(img, dx, dy, drawW, drawH);
-          ctx.restore();
-
-          drawRoundedArchPath(ctx, 28, 28, 200, 260);
-          ctx.lineWidth = 5;
-          ctx.strokeStyle = colors.rim;
-          ctx.stroke();
-
-          ctx.fillStyle = isSengoku ? '#451a03' : '#1e293b';
-          ctx.fillRect(42, 284, 172, 18);
-          ctx.strokeStyle = colors.rim;
-          ctx.lineWidth = 3;
-          ctx.strokeRect(42, 284, 172, 18);
+            if (kind === 'trap' && 'filter' in ctx) {
+              ctx.filter = 'brightness(1.55) contrast(1.25) saturate(1.2)';
+            }
+            ctx.drawImage(img, dx, dy, drawW, drawH);
+            if ('filter' in ctx) {
+              ctx.filter = 'none';
+            }
+          });
         } else {
           const pad = 4;
           const availW = w - pad * 2;
@@ -824,7 +868,7 @@ function hydrateStandeeFromFlowAsset(
           ctx.drawImage(img, dx, dy, drawW, drawH);
 
           const imageData = ctx.getImageData(0, 0, w, h);
-          removeDarkStudioBackdrop(imageData, 48);
+          removeDarkStudioBackdrop(imageData, 128);
           ctx.putImageData(imageData, 0, 0);
         }
 
@@ -843,7 +887,7 @@ export function getStandeeTexture(
   kind: StandeeKind,
   theme: ThemeId = 'sengoku'
 ): THREE.CanvasTexture | null {
-  const key = `${theme}:${kind}`;
+  const key = `v3:${theme}:${kind}`;
   const cached = standeeCache.get(key);
   if (cached) return cached;
 
@@ -852,47 +896,65 @@ export function getStandeeTexture(
   const { canvas, ctx } = surface;
   const isSengoku = theme === 'sengoku';
   const colors = getKindColors(kind, isSengoku);
+  const isProp = kind === 'gem' || kind === 'item' || kind === 'trap';
 
-  ctx.clearRect(0, 0, 256, 320);
+  if (isProp) {
+    drawPropMedallionFrame(ctx, isSengoku, colors, () => {
+      const grad = ctx.createLinearGradient(0, 92, 0, 260);
+      grad.addColorStop(0, colors.bgTop);
+      grad.addColorStop(1, colors.bgBottom);
+      ctx.fillStyle = grad;
+      ctx.fillRect(42, 92, 172, 172);
 
-  drawRoundedArchPath(ctx, 18, 18, 220, 280);
-  ctx.fillStyle = isSengoku ? '#f5e9d0' : '#cbd5e1';
-  ctx.fill();
-  ctx.lineWidth = 8;
-  ctx.strokeStyle = isSengoku ? '#291d14' : '#0f172a';
-  ctx.stroke();
+      ctx.save();
+      ctx.translate(128, 176);
+      ctx.scale(0.82, 0.82);
+      ctx.translate(-128, -172);
+      drawArtwork(ctx, kind, colors);
+      ctx.restore();
+    });
+  } else {
+    ctx.clearRect(0, 0, 256, 320);
 
-  ctx.save();
-  drawRoundedArchPath(ctx, 28, 28, 200, 260);
-  ctx.clip();
+    drawRoundedArchPath(ctx, 18, 18, 220, 280);
+    ctx.fillStyle = isSengoku ? '#f5e9d0' : '#cbd5e1';
+    ctx.fill();
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = isSengoku ? '#291d14' : '#0f172a';
+    ctx.stroke();
 
-  const grad = ctx.createLinearGradient(0, 28, 0, 288);
-  grad.addColorStop(0, colors.bgTop);
-  grad.addColorStop(1, colors.bgBottom);
-  ctx.fillStyle = grad;
-  ctx.fillRect(28, 28, 200, 260);
+    ctx.save();
+    drawRoundedArchPath(ctx, 28, 28, 200, 260);
+    ctx.clip();
 
-  ctx.strokeStyle = colors.rim;
-  ctx.globalAlpha = 0.28;
-  ctx.lineWidth = 6;
-  ctx.beginPath();
-  ctx.arc(128, 138, 72, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+    const grad = ctx.createLinearGradient(0, 28, 0, 288);
+    grad.addColorStop(0, colors.bgTop);
+    grad.addColorStop(1, colors.bgBottom);
+    ctx.fillStyle = grad;
+    ctx.fillRect(28, 28, 200, 260);
 
-  drawArtwork(ctx, kind, colors);
-  ctx.restore();
+    ctx.strokeStyle = colors.rim;
+    ctx.globalAlpha = 0.28;
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(128, 138, 72, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
 
-  drawRoundedArchPath(ctx, 28, 28, 200, 260);
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = colors.rim;
-  ctx.stroke();
+    drawArtwork(ctx, kind, colors);
+    ctx.restore();
 
-  ctx.fillStyle = isSengoku ? '#451a03' : '#1e293b';
-  ctx.fillRect(42, 284, 172, 18);
-  ctx.strokeStyle = colors.rim;
-  ctx.lineWidth = 3;
-  ctx.strokeRect(42, 284, 172, 18);
+    drawRoundedArchPath(ctx, 28, 28, 200, 260);
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = colors.rim;
+    ctx.stroke();
+
+    ctx.fillStyle = isSengoku ? '#451a03' : '#1e293b';
+    ctx.fillRect(42, 284, 172, 18);
+    ctx.strokeStyle = colors.rim;
+    ctx.lineWidth = 3;
+    ctx.strokeRect(42, 284, 172, 18);
+  }
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;

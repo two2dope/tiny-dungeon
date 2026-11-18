@@ -67,30 +67,50 @@ describe('standeeTextures', () => {
     expect(data[(2 * width + 2) * 4 + 3]).toBe(255);
   });
 
-  it('preserves dark steel pixels (rgb 58, 60, 64) at the image perimeter under threshold 48', () => {
-    const width = 3;
-    const height = 3;
+  it('removes both dark (24,24,26) and medium lit studio greys (92,98,108) while preserving die-cut edges and enclosed dark pixels', () => {
+    const width = 6;
+    const height = 6;
     const data = new Uint8ClampedArray(width * height * 4);
 
-    // Fill with dark steel RGB(58, 60, 64)
-    for (let i = 0; i < width * height; i++) {
-      data[i * 4] = 58;
-      data[i * 4 + 1] = 60;
-      data[i * 4 + 2] = 64;
-      data[i * 4 + 3] = 255;
+    // Outer perimeter has lit slate studio gradient (92, 98, 108), corners darker (24, 24, 26)
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const off = (y * width + x) * 4;
+        const isCorner = (x === 0 || x === width - 1) && (y === 0 || y === height - 1);
+        data[off] = isCorner ? 24 : 92;
+        data[off + 1] = isCorner ? 24 : 98;
+        data[off + 2] = isCorner ? 26 : 108;
+        data[off + 3] = 255;
+      }
     }
 
-    // Set top-left corner to charcoal studio backdrop RGB(24, 24, 26)
-    data[0] = 24;
-    data[1] = 24;
-    data[2] = 26;
+    // Build die-cut parchment ring around x: 1..4, y: 1..4 with enclosed dark ink center (2..3, 2..3)
+    for (let y = 1; y <= 4; y++) {
+      for (let x = 1; x <= 4; x++) {
+        const off = (y * width + x) * 4;
+        const isBorder = x === 1 || x === 4 || y === 1 || y === 4;
+        if (isBorder) {
+          data[off] = 240;
+          data[off + 1] = 228;
+          data[off + 2] = 200;
+        } else {
+          data[off] = 12;
+          data[off + 1] = 12;
+          data[off + 2] = 14;
+        }
+        data[off + 3] = 255;
+      }
+    }
 
-    removeDarkStudioBackdrop({ data, width, height }, 48);
+    removeDarkStudioBackdrop({ data, width, height }, 128);
 
-    // Backdrop pixel is removed; dark steel perimeter pixels remain intact
+    // Outer dark corner and outer medium studio grey must be removed
     expect(data[3]).toBe(0);
-    expect(data[1 * 4 + 3]).toBeGreaterThan(0);
-    expect(data[(width + 1) * 4 + 3]).toBe(255);
+    expect(data[2 * 4 + 3]).toBe(0);
+    // Die-cut ring pixel (1,1) stays opaque
+    expect(data[(1 * width + 1) * 4 + 3]).toBe(255);
+    // Enclosed dark ink center pixel (2,2) stays opaque
+    expect(data[(2 * width + 2) * 4 + 3]).toBe(255);
   });
 
   it('safely returns null when 2D canvas context is unavailable (JSDOM fallback)', () => {
@@ -121,6 +141,9 @@ describe('standeeTextures', () => {
       clip: noop,
       save: noop,
       restore: noop,
+      translate: noop,
+      scale: noop,
+      filter: 'none',
       createLinearGradient: () => mockGradient,
       fillStyle: '',
       strokeStyle: '',

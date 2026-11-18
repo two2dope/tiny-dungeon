@@ -8,6 +8,7 @@ import { RoomTile3D } from './RoomTile3D';
 import { Walls3D } from './Walls3D';
 import { PartyPawn3D } from './PartyPawn3D';
 import { TorchLight } from './TorchLight';
+import { Environment360 } from './Environment360';
 import { DungeonCoord, RoomState, ThemeId } from '../../engine/types';
 import { soundEngine } from '../../audio/soundEngine';
 
@@ -230,6 +231,27 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
       <TorchLight position={[1.5 * tileSize, 2.1, 1.5 * tileSize]} intensity={4.2} color="#ff8533" theme={theme} isPaused={isPaused} />
 
       <AmbientMotes theme={theme} isPaused={isPaused} />
+      <Environment360 theme={theme} tileSize={tileSize} isPaused={isPaused} />
+
+      {/* Grounded Tactical Tabletop Base Slab */}
+      <group position={[1.5 * tileSize, -0.12, 1.5 * tileSize]}>
+        <mesh receiveShadow>
+          <boxGeometry args={[4 * tileSize + 1.4, 0.12, 4 * tileSize + 1.4]} />
+          <meshStandardMaterial
+            color={theme === 'sengoku' ? '#1e1610' : '#0f172a'}
+            roughness={0.78}
+            metalness={0.15}
+          />
+        </mesh>
+        <mesh position={[0, -0.05, 0]} receiveShadow>
+          <boxGeometry args={[4 * tileSize + 1.65, 0.06, 4 * tileSize + 1.65]} />
+          <meshStandardMaterial
+            color={theme === 'sengoku' ? '#92400e' : '#475569'}
+            roughness={0.48}
+            metalness={0.45}
+          />
+        </mesh>
+      </group>
 
       {Object.values(dungeon.rooms).map((room) => {
         const isCurrent =
@@ -350,7 +372,7 @@ export const DungeonCanvas: React.FC = () => {
           maxPolarAngle={Math.PI / 2.3}
           minPolarAngle={Math.PI / 6}
           minDistance={10}
-          maxDistance={25}
+          maxDistance={28}
           target={[0, 0, 0]}
         />
       </Canvas>
@@ -358,7 +380,7 @@ export const DungeonCanvas: React.FC = () => {
       {hoveredRoom && (
         <div
           aria-live="polite"
-          className="pointer-events-none absolute top-24 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-stone-950/90 border border-amber-500/40 text-xs font-mono text-amber-200 shadow-xl backdrop-blur-md whitespace-nowrap"
+          className="pointer-events-none absolute bottom-28 left-1/2 -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-stone-950/90 border border-amber-500/40 text-xs font-mono text-amber-200 shadow-xl backdrop-blur-md whitespace-nowrap"
         >
           {getRoomPreviewText(hoveredRoom)}
         </div>

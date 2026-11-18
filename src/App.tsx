@@ -136,7 +136,7 @@ export default function App() {
       {lastEventFeedback && (
         <div
           aria-live="polite"
-          className={`pointer-events-none self-center z-20 px-3.5 py-1 rounded-full text-xs font-mono border shadow-lg backdrop-blur-md ${
+          className={`pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1 rounded-full text-xs font-mono border shadow-lg backdrop-blur-md ${
             lastEventFeedback.tone === 'damage'
               ? 'bg-red-950/90 border-red-500/60 text-red-200'
               : lastEventFeedback.tone === 'glory'

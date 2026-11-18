@@ -12,10 +12,12 @@ export const Walls3D: React.FC<Walls3DProps> = ({ walls, theme = 'sengoku' }) =>
   const wallTexture = useMemo(() => getWallTexture(theme), [theme]);
 
   const perimeterWalls = [
-    { pos: [1.5 * tileSize, 0.45, -0.5 * tileSize] as [number, number, number], size: [4 * tileSize + 0.4, 0.9, 0.32] as [number, number, number] },
-    { pos: [1.5 * tileSize, 0.45, 3.5 * tileSize] as [number, number, number], size: [4 * tileSize + 0.4, 0.9, 0.32] as [number, number, number] },
-    { pos: [-0.5 * tileSize, 0.45, 1.5 * tileSize] as [number, number, number], size: [0.32, 0.9, 4 * tileSize + 0.4] as [number, number, number] },
-    { pos: [3.5 * tileSize, 0.45, 1.5 * tileSize] as [number, number, number], size: [0.32, 0.9, 4 * tileSize + 0.4] as [number, number, number] },
+    // Back walls (North & West) — full height framing
+    { pos: [1.5 * tileSize, 0.38, -0.5 * tileSize] as [number, number, number], size: [4 * tileSize + 0.4, 0.76, 0.32] as [number, number, number], trimY: 0.4 },
+    { pos: [-0.5 * tileSize, 0.38, 1.5 * tileSize] as [number, number, number], size: [0.32, 0.76, 4 * tileSize + 0.4] as [number, number, number], trimY: 0.4 },
+    // Front walls (South & East) — cutaway low parapet for clear isometric visibility
+    { pos: [1.5 * tileSize, 0.12, 3.5 * tileSize] as [number, number, number], size: [4 * tileSize + 0.4, 0.24, 0.32] as [number, number, number], trimY: 0.14 },
+    { pos: [3.5 * tileSize, 0.12, 1.5 * tileSize] as [number, number, number], size: [0.32, 0.24, 4 * tileSize + 0.4] as [number, number, number], trimY: 0.14 },
   ];
 
   const perimColor = theme === 'sengoku' ? '#574132' : '#334155';
@@ -33,13 +35,13 @@ export const Walls3D: React.FC<Walls3DProps> = ({ walls, theme = 'sengoku' }) =>
               color={perimColor}
               map={wallTexture ?? undefined}
               bumpMap={wallTexture ?? undefined}
-              bumpScale={0.04}
+              bumpScale={0.065}
               roughness={0.65}
               metalness={0.12}
             />
           </mesh>
-          <mesh position={[0, 0.48, 0]}>
-            <boxGeometry args={[pw.size[0] + 0.08, 0.1, pw.size[2] + 0.08]} />
+          <mesh position={[0, pw.trimY, 0]}>
+            <boxGeometry args={[pw.size[0] + 0.08, 0.08, pw.size[2] + 0.08]} />
             <meshStandardMaterial color={trimColor} roughness={0.65} metalness={0.2} />
           </mesh>
         </group>
@@ -51,28 +53,28 @@ export const Walls3D: React.FC<Walls3DProps> = ({ walls, theme = 'sengoku' }) =>
         const isHorizontal = wall.from.y !== wall.to.y;
 
         const wallSize: [number, number, number] = isHorizontal
-          ? [tileSize * 0.92, 0.78, 0.26]
-          : [0.26, 0.78, tileSize * 0.92];
+          ? [tileSize * 0.92, 0.52, 0.26]
+          : [0.26, 0.52, tileSize * 0.92];
 
         return (
-          <group key={`wall-${idx}`} position={[midX, 0.39, midZ]}>
+          <group key={`wall-${idx}`} position={[midX, 0.26, midZ]}>
             <mesh castShadow receiveShadow>
               <boxGeometry args={wallSize} />
               <meshStandardMaterial
                 color={innerWallColor}
                 map={wallTexture ?? undefined}
                 bumpMap={wallTexture ?? undefined}
-                bumpScale={0.04}
+                bumpScale={0.065}
                 roughness={0.65}
                 metalness={0.15}
               />
             </mesh>
-            <mesh position={isHorizontal ? [tileSize * 0.42, 0.06, 0] : [0, 0.06, tileSize * 0.42]}>
-              <boxGeometry args={[0.32, 0.9, 0.32]} />
+            <mesh position={isHorizontal ? [tileSize * 0.42, 0.04, 0] : [0, 0.04, tileSize * 0.42]}>
+              <boxGeometry args={[0.3, 0.6, 0.3]} />
               <meshStandardMaterial color={pillarColor} roughness={0.65} />
             </mesh>
-            <mesh position={isHorizontal ? [-tileSize * 0.42, 0.06, 0] : [0, 0.06, -tileSize * 0.42]}>
-              <boxGeometry args={[0.32, 0.9, 0.32]} />
+            <mesh position={isHorizontal ? [-tileSize * 0.42, 0.04, 0] : [0, 0.04, -tileSize * 0.42]}>
+              <boxGeometry args={[0.3, 0.6, 0.3]} />
               <meshStandardMaterial color={pillarColor} roughness={0.65} />
             </mesh>
           </group>

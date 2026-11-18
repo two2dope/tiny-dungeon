@@ -6,7 +6,6 @@ import { RoomState, ThemeId } from '../../engine/types';
 import { formatCoordLabel } from '../../engine/dungeon';
 import { getSlabTexture } from './proceduralTextures';
 import { getStandeeTexture, StandeeKind } from './standeeTextures';
-import { useGlbGeometry } from './glbRegistry';
 
 function resolveRoomStandeeKind(room: RoomState): StandeeKind | null {
   if (room.type === 'boss') {
@@ -70,15 +69,11 @@ export const RoomTile3D: React.FC<RoomTile3DProps> = ({
   const tileSize = 2.6;
   const posX = room.coord.x * tileSize;
   const posZ = room.coord.y * tileSize;
-  const itemRef = useRef<THREE.Group>(null);
   const pulseRef = useRef<THREE.Mesh>(null);
 
   useFrame(({ clock }) => {
     if (isPaused) return;
     const t = clock.getElapsedTime();
-    if (itemRef.current) {
-      itemRef.current.rotation.y = t * 1.15;
-    }
     if (pulseRef.current && isValidMove) {
       const mat = pulseRef.current.material as THREE.MeshBasicMaterial;
       mat.opacity = 0.42 + Math.sin(t * 4) * 0.18;
@@ -92,8 +87,6 @@ export const RoomTile3D: React.FC<RoomTile3DProps> = ({
     () => (standeeKind ? getStandeeTexture(standeeKind, theme) : null),
     [standeeKind, theme]
   );
-  const relicChestGeom = useGlbGeometry('relic-chest');
-  const toriiGateGeom = useGlbGeometry('torii-gate');
 
   let floorColor = isSengoku ? '#786754' : '#3f4c63';
   if (isCurrent) floorColor = isSengoku ? '#d6b88e' : '#64748b';
@@ -199,7 +192,7 @@ export const RoomTile3D: React.FC<RoomTile3DProps> = ({
           color={floorColor}
           map={slabTexture ?? undefined}
           bumpMap={slabTexture ?? undefined}
-          bumpScale={0.03}
+          bumpScale={0.065}
           roughness={0.65}
           metalness={0.12}
         />
@@ -260,120 +253,55 @@ export const RoomTile3D: React.FC<RoomTile3DProps> = ({
 
       {/* Magic Items */}
       {room.type === 'item' && !room.cleared && (
-        <group>
-          <StandeePedestal color="#f59e0b" emissive="#b45309" />
-          <group ref={itemRef} position={[0, 0.2, 0.28]} scale={0.85}>
-            {relicChestGeom ? (
-              <mesh geometry={relicChestGeom} castShadow>
-                <meshStandardMaterial
-                  color="#fbbf24"
-                  emissive="#d97706"
-                  emissiveIntensity={0.45}
-                  metalness={0.78}
-                  roughness={0.22}
-                />
-              </mesh>
-            ) : (
-              <>
-                <mesh castShadow>
-                  <boxGeometry args={[0.36, 0.22, 0.28]} />
-                  <meshStandardMaterial
-                    color="#fbbf24"
-                    emissive="#d97706"
-                    emissiveIntensity={0.55}
-                    metalness={0.8}
-                    roughness={0.2}
-                  />
-                </mesh>
-                <mesh position={[0, 0.14, 0]} castShadow>
-                  <boxGeometry args={[0.38, 0.08, 0.3]} />
-                  <meshStandardMaterial color="#fde047" metalness={0.85} roughness={0.18} />
-                </mesh>
-              </>
-            )}
-          </group>
-        </group>
+        <StandeePedestal color="#f59e0b" emissive="#b45309" />
       )}
 
-      {/* Boss Pedestal & Backdrop Torii Gateway */}
+      {/* Boss Imperial Altar (unobstructed standee) */}
       {room.type === 'boss' && (
-        <group>
-          <group position={[0, 0.12, 0.14]}>
-            <mesh receiveShadow>
-              <cylinderGeometry args={[0.64, 0.72, 0.1, 24]} />
-              <meshStandardMaterial
-                color={isSengoku ? '#991b1b' : '#4c1d95'}
-                emissive={isSengoku ? '#450a0a' : '#2e1065'}
-                emissiveIntensity={0.35}
-              />
-            </mesh>
-            <mesh position={[0, 0.03, 0]} receiveShadow>
-              <cylinderGeometry args={[0.52, 0.56, 0.08, 24]} />
-              <meshStandardMaterial color="#1c1917" metalness={0.5} roughness={0.35} />
-            </mesh>
-          </group>
-
-          <group position={[0, 0.62, -0.52]} scale={1.18}>
-            {toriiGateGeom ? (
-              <mesh geometry={toriiGateGeom} castShadow>
-                <meshStandardMaterial
-                  color={isSengoku ? '#991b1b' : '#4c1d95'}
-                  emissive={isSengoku ? '#450a0a' : '#2e1065'}
-                  emissiveIntensity={0.28}
-                  metalness={0.42}
-                  roughness={0.38}
-                />
-              </mesh>
-            ) : (
-              <>
-                <mesh position={[-0.48, 0, 0]} castShadow>
-                  <boxGeometry args={[0.2, 1.0, 0.2]} />
-                  <meshStandardMaterial
-                    color={isSengoku ? '#991b1b' : '#4c1d95'}
-                    emissive={isSengoku ? '#450a0a' : '#2e1065'}
-                    emissiveIntensity={0.28}
-                    metalness={0.42}
-                    roughness={0.38}
-                  />
-                </mesh>
-                <mesh position={[0.48, 0, 0]} castShadow>
-                  <boxGeometry args={[0.2, 1.0, 0.2]} />
-                  <meshStandardMaterial
-                    color={isSengoku ? '#991b1b' : '#4c1d95'}
-                    emissive={isSengoku ? '#450a0a' : '#2e1065'}
-                    emissiveIntensity={0.28}
-                    metalness={0.42}
-                    roughness={0.38}
-                  />
-                </mesh>
-                <mesh position={[0, 0.5, 0]} castShadow>
-                  <boxGeometry args={[1.28, 0.16, 0.26]} />
-                  <meshStandardMaterial
-                    color={isSengoku ? '#b91c1c' : '#5b21b6'}
-                    emissive={isSengoku ? '#450a0a' : '#2e1065'}
-                    emissiveIntensity={0.3}
-                    metalness={0.45}
-                    roughness={0.35}
-                  />
-                </mesh>
-              </>
-            )}
-          </group>
+        <group position={[0, 0.11, 0]}>
+          <mesh receiveShadow>
+            <cylinderGeometry args={[0.76, 0.86, 0.08, 28]} />
+            <meshStandardMaterial
+              color={isSengoku ? '#991b1b' : '#b45309'}
+              emissive={isSengoku ? '#7f1d1d' : '#92400e'}
+              emissiveIntensity={0.4}
+            />
+          </mesh>
+          <mesh position={[0, 0.03, 0]} receiveShadow>
+            <cylinderGeometry args={[0.62, 0.68, 0.08, 28]} />
+            <meshStandardMaterial color="#181311" metalness={0.5} roughness={0.35} />
+          </mesh>
+          <mesh position={[0, 0.075, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[0.52, 0.61, 28]} />
+            <meshBasicMaterial color="#fbbf24" />
+          </mesh>
         </group>
       )}
 
-      {/* 2.5D Die-Cut Illustrated Standee Billboard */}
+      {/* 2.5D Die-Cut Illustrated Standee & Prop Medallion Billboard */}
       {standeeTexture && (
         <Billboard
           position={[
-            room.type === 'boss' ? 0 : 0,
-            room.type === 'boss' ? 0.88 : room.type === 'item' ? 0.78 : 0.76,
-            room.type === 'boss' ? 0.14 : room.type === 'item' ? -0.05 : 0,
+            0,
+            room.type === 'boss'
+              ? 0.88
+              : room.type === 'gem' || room.type === 'item' || room.type === 'trap'
+                ? 0.64
+                : 0.78,
+            0,
           ]}
           follow={true}
         >
           <mesh>
-            <planeGeometry args={room.type === 'boss' ? [1.24, 1.55] : [1.02, 1.28]} />
+            <planeGeometry
+              args={
+                room.type === 'boss'
+                  ? [1.26, 1.58]
+                  : room.type === 'gem' || room.type === 'item' || room.type === 'trap'
+                    ? [0.92, 1.15]
+                    : [1.06, 1.32]
+              }
+            />
             <meshBasicMaterial
               map={standeeTexture}
               transparent
@@ -388,9 +316,9 @@ export const RoomTile3D: React.FC<RoomTile3DProps> = ({
       <Html
         position={
           room.type === 'boss'
-            ? [0, 1.82, 0.14]
+            ? [0, 1.82, 0]
             : room.cleared || room.type === 'start' || room.type === 'empty'
-              ? [0, 0.18, 0.88]
+              ? [0, 0.16, 0.48]
               : [0, 1.52, 0]
         }
         center
