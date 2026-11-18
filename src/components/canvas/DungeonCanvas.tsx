@@ -3,7 +3,7 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { EventFeedback, useGameStore } from '../../store/gameStore';
-import { formatCoordLabel, getShortestPath, getValidMoves } from '../../engine/dungeon';
+import { formatCoordLabel, getMapDimensions, getShortestPath, getValidMoves } from '../../engine/dungeon';
 import { RoomTile3D } from './RoomTile3D';
 import { Walls3D } from './Walls3D';
 import { PartyPawn3D } from './PartyPawn3D';
@@ -193,7 +193,9 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
   }, [dungeon, steps, canAct]);
 
   const tileSize = 2.6;
-  const centerOffset = 1.5 * tileSize;
+  const { cols, rows } = getMapDimensions(dungeon);
+  const centerOffsetX = ((cols - 1) / 2) * tileSize;
+  const centerOffsetZ = ((rows - 1) / 2) * tileSize;
 
   const tacticalPath = useMemo(() => {
     if (!hoveredRoom || !canAct) return [];
@@ -208,7 +210,7 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
   const torchAlt = theme === 'sengoku' ? '#fb923c' : '#ffaa66';
 
   return (
-    <group position={[-centerOffset, 0, -centerOffset]}>
+    <group position={[-centerOffsetX, 0, -centerOffsetZ]}>
       <ambientLight intensity={1.25} color="#ffffff" />
       <hemisphereLight
         args={[
@@ -225,18 +227,18 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
       />
 
       <TorchLight position={[-0.3, 1.15, -0.3]} intensity={4.2} color={torchMain} theme={theme} isPaused={isPaused} />
-      <TorchLight position={[3 * tileSize + 0.3, 1.15, -0.3]} intensity={4.2} color={torchAlt} theme={theme} isPaused={isPaused} />
-      <TorchLight position={[-0.3, 1.15, 3 * tileSize + 0.3]} intensity={4.2} color={torchAlt} theme={theme} isPaused={isPaused} />
-      <TorchLight position={[3 * tileSize + 0.3, 1.15, 3 * tileSize + 0.3]} intensity={4.2} color="#ffbf5e" theme={theme} isPaused={isPaused} />
-      <TorchLight position={[1.5 * tileSize, 2.1, 1.5 * tileSize]} intensity={4.2} color="#ff8533" theme={theme} isPaused={isPaused} />
+      <TorchLight position={[(cols - 1) * tileSize + 0.3, 1.15, -0.3]} intensity={4.2} color={torchAlt} theme={theme} isPaused={isPaused} />
+      <TorchLight position={[-0.3, 1.15, (rows - 1) * tileSize + 0.3]} intensity={4.2} color={torchAlt} theme={theme} isPaused={isPaused} />
+      <TorchLight position={[(cols - 1) * tileSize + 0.3, 1.15, (rows - 1) * tileSize + 0.3]} intensity={4.2} color="#ffbf5e" theme={theme} isPaused={isPaused} />
+      <TorchLight position={[centerOffsetX, 2.1, centerOffsetZ]} intensity={4.2} color="#ff8533" theme={theme} isPaused={isPaused} />
 
       <AmbientMotes theme={theme} isPaused={isPaused} />
-      <Environment360 theme={theme} tileSize={tileSize} isPaused={isPaused} />
+      <Environment360 theme={theme} tileSize={tileSize} cols={cols} rows={rows} isPaused={isPaused} />
 
       {/* Grounded Tactical Tabletop Base Slab */}
-      <group position={[1.5 * tileSize, -0.12, 1.5 * tileSize]}>
+      <group position={[centerOffsetX, -0.12, centerOffsetZ]}>
         <mesh receiveShadow>
-          <boxGeometry args={[4 * tileSize + 1.4, 0.12, 4 * tileSize + 1.4]} />
+          <boxGeometry args={[cols * tileSize + 1.4, 0.12, rows * tileSize + 1.4]} />
           <meshStandardMaterial
             color={theme === 'sengoku' ? '#1e1610' : '#0f172a'}
             roughness={0.78}
@@ -244,7 +246,7 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
           />
         </mesh>
         <mesh position={[0, -0.05, 0]} receiveShadow>
-          <boxGeometry args={[4 * tileSize + 1.65, 0.06, 4 * tileSize + 1.65]} />
+          <boxGeometry args={[cols * tileSize + 1.65, 0.06, rows * tileSize + 1.65]} />
           <meshStandardMaterial
             color={theme === 'sengoku' ? '#92400e' : '#475569'}
             roughness={0.48}
@@ -278,7 +280,7 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
         );
       })}
 
-      <Walls3D walls={dungeon.walls} theme={theme} />
+      <Walls3D walls={dungeon.walls} cols={cols} rows={rows} theme={theme} />
       <TacticalPath3D path={tacticalPath} tileSize={tileSize} />
       <PartyPawn3D coord={dungeon.currentCoord} theme={theme} isPaused={isPaused} />
       <ActionBurst3D
@@ -372,7 +374,7 @@ export const DungeonCanvas: React.FC = () => {
           maxPolarAngle={Math.PI / 2.3}
           minPolarAngle={Math.PI / 6}
           minDistance={10}
-          maxDistance={28}
+          maxDistance={34}
           target={[0, 0, 0]}
         />
       </Canvas>

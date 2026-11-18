@@ -85,6 +85,8 @@ export interface Wall {
 export interface DungeonMap {
   mapId?: number;
   mapName?: string;
+  cols?: number;
+  rows?: number;
   startCoord: DungeonCoord;
   currentCoord: DungeonCoord;
   rooms: Record<string, RoomState>;

@@ -85,7 +85,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
             >
               {CANONICAL_MAPS.map((m) => (
                 <option key={m.id} value={m.id}>
-                  M{m.id}: {m.name}
+                  M{m.id}: {m.name} ({m.sizeLabel})
                 </option>
               ))}
             </select>

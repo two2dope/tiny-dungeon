@@ -8,6 +8,8 @@ import { useGlbGeometry } from './glbRegistry';
 interface Environment360Props {
   theme: ThemeId;
   tileSize: number;
+  cols?: number;
+  rows?: number;
   isPaused?: boolean;
 }
 
@@ -19,6 +21,8 @@ const LANTERN_ANGLES = Array.from({ length: 8 }).map(
 export const Environment360: React.FC<Environment360Props> = ({
   theme,
   tileSize,
+  cols = 4,
+  rows = 4,
   isPaused = false,
 }) => {
   const ruinsGroupRef = useRef<THREE.Group>(null);
@@ -28,13 +32,19 @@ export const Environment360: React.FC<Environment360Props> = ({
   const lanternGeom = useGlbGeometry('lantern-pedestal');
 
   const isSengoku = theme === 'sengoku';
-  const center = 1.5 * tileSize;
+  const centerX = ((cols - 1) / 2) * tileSize;
+  const centerZ = ((rows - 1) / 2) * tileSize;
+  const boardRadius = (Math.max(cols, rows) * tileSize) / 2;
+  const lanternRadius = boardRadius + 2.25;
+  const gateDist = boardRadius + 3.2;
+  const platformRadius = boardRadius + 4.2;
+  const ruinsBaseRadius = boardRadius + 6.2;
 
   const ruinConfigs = useMemo(
     () =>
       Array.from({ length: 12 }).map((_, idx) => {
         const angle = (idx / 12) * Math.PI * 2 + 0.18;
-        const radius = 11.4 + (idx % 3) * 2.1;
+        const radius = ruinsBaseRadius + (idx % 3) * 2.1;
         const baseY = -1.25 + (idx % 4) * 0.72;
         const scale = 0.72 + (idx % 3) * 0.34;
         return {
@@ -46,7 +56,7 @@ export const Environment360: React.FC<Environment360Props> = ({
           phase: idx * 0.85,
         };
       }),
-    []
+    [ruinsBaseRadius]
   );
 
   useFrame(({ clock }) => {
@@ -66,7 +76,7 @@ export const Environment360: React.FC<Environment360Props> = ({
   const orbColor = isSengoku ? '#ffb454' : '#7dd3fc';
 
   return (
-    <group position={[center, 0, center]}>
+    <group position={[centerX, 0, centerZ]}>
       {/* 360 Panoramic Horizon Sky Dome */}
       <mesh renderOrder={-10}>
         <sphereGeometry args={[44, 48, 32]} />
@@ -81,7 +91,7 @@ export const Environment360: React.FC<Environment360Props> = ({
       {/* Carved Ritual Compass Platform under Tactical Board */}
       <group position={[0, -0.24, 0]}>
         <mesh rotation={[0, Math.PI / 8, 0]} receiveShadow>
-          <cylinderGeometry args={[9.4, 10.2, 0.16, 8]} />
+          <cylinderGeometry args={[platformRadius, platformRadius + 0.8, 0.16, 8]} />
           <meshStandardMaterial
             color={isSengoku ? '#d6c3a5' : '#cbd5e1'}
             map={tabletopTexture ?? undefined}
@@ -90,16 +100,15 @@ export const Environment360: React.FC<Environment360Props> = ({
           />
         </mesh>
         <mesh position={[0, 0.09, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <ringGeometry args={[8.1, 8.35, 48]} />
+          <ringGeometry args={[platformRadius - 1.3, platformRadius - 1.05, 48]} />
           <meshBasicMaterial color={trimRingColor} transparent opacity={0.55} />
         </mesh>
       </group>
 
       {/* 4 Outer Guardian Gateways (Cardinal Parallax Landmarks) */}
       {CARDINAL_ANGLES.map((angle, idx) => {
-        const dist = 8.4;
-        const gx = Math.cos(angle) * dist;
-        const gz = Math.sin(angle) * dist;
+        const gx = Math.cos(angle) * gateDist;
+        const gz = Math.sin(angle) * gateDist;
         const rotY = Math.atan2(-gx, -gz);
         return (
           <group key={`outer-gate-${idx}`} position={[gx, 0, gz]} rotation={[0, rotY, 0]}>
@@ -141,9 +150,8 @@ export const Environment360: React.FC<Environment360Props> = ({
 
       {/* 8 Perimeter Stone Lantern Pillars */}
       {LANTERN_ANGLES.map((angle, idx) => {
-        const radius = 7.45;
-        const lx = Math.cos(angle) * radius;
-        const lz = Math.sin(angle) * radius;
+        const lx = Math.cos(angle) * lanternRadius;
+        const lz = Math.sin(angle) * lanternRadius;
         return (
           <group key={`outer-lantern-${idx}`} position={[lx, 0, lz]}>
             <mesh position={[0, 0.16, 0]} castShadow receiveShadow>

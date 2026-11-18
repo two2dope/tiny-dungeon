@@ -4,20 +4,31 @@ import { getWallTexture } from './proceduralTextures';
 
 interface Walls3DProps {
   walls: Wall[];
+  cols?: number;
+  rows?: number;
   theme?: ThemeId;
 }
 
-export const Walls3D: React.FC<Walls3DProps> = ({ walls, theme = 'sengoku' }) => {
+export const Walls3D: React.FC<Walls3DProps> = ({
+  walls,
+  cols = 4,
+  rows = 4,
+  theme = 'sengoku',
+}) => {
   const tileSize = 2.6;
   const wallTexture = useMemo(() => getWallTexture(theme), [theme]);
+  const centerX = ((cols - 1) / 2) * tileSize;
+  const centerZ = ((rows - 1) / 2) * tileSize;
+  const spanX = cols * tileSize + 0.4;
+  const spanZ = rows * tileSize + 0.4;
 
   const perimeterWalls = [
     // Back walls (North & West) — full height framing
-    { pos: [1.5 * tileSize, 0.38, -0.5 * tileSize] as [number, number, number], size: [4 * tileSize + 0.4, 0.76, 0.32] as [number, number, number], trimY: 0.4 },
-    { pos: [-0.5 * tileSize, 0.38, 1.5 * tileSize] as [number, number, number], size: [0.32, 0.76, 4 * tileSize + 0.4] as [number, number, number], trimY: 0.4 },
+    { pos: [centerX, 0.38, -0.5 * tileSize] as [number, number, number], size: [spanX, 0.76, 0.32] as [number, number, number], trimY: 0.4 },
+    { pos: [-0.5 * tileSize, 0.38, centerZ] as [number, number, number], size: [0.32, 0.76, spanZ] as [number, number, number], trimY: 0.4 },
     // Front walls (South & East) — cutaway low parapet for clear isometric visibility
-    { pos: [1.5 * tileSize, 0.12, 3.5 * tileSize] as [number, number, number], size: [4 * tileSize + 0.4, 0.24, 0.32] as [number, number, number], trimY: 0.14 },
-    { pos: [3.5 * tileSize, 0.12, 1.5 * tileSize] as [number, number, number], size: [0.32, 0.24, 4 * tileSize + 0.4] as [number, number, number], trimY: 0.14 },
+    { pos: [centerX, 0.12, (rows - 0.5) * tileSize] as [number, number, number], size: [spanX, 0.24, 0.32] as [number, number, number], trimY: 0.14 },
+    { pos: [(cols - 0.5) * tileSize, 0.12, centerZ] as [number, number, number], size: [0.32, 0.24, spanZ] as [number, number, number], trimY: 0.14 },
   ];
 
   const perimColor = theme === 'sengoku' ? '#574132' : '#334155';

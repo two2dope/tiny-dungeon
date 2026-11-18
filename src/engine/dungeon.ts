@@ -10,17 +10,30 @@ export interface CanonicalMapMeta {
   id: number;
   name: string;
   subtitle: string;
+  cols: number;
+  rows: number;
+  sizeLabel: string;
 }
 
 export const CANONICAL_MAPS: CanonicalMapMeta[] = [
-  { id: 1, name: 'Cripta da Mantícora', subtitle: 'Mapa Canônico 1' },
-  { id: 2, name: 'Pátio de Sengoku', subtitle: 'Fortaleza Outonal' },
-  { id: 3, name: 'Forja de Obsidiana', subtitle: 'Câmaras Vulcânicas' },
-  { id: 4, name: 'Santuário Abissal', subtitle: 'Ruínas Submersas' },
+  { id: 1, name: 'Cripta da Mantícora', subtitle: 'Mapa Canônico 1', cols: 4, rows: 4, sizeLabel: '4×4' },
+  { id: 2, name: 'Pátio de Sengoku', subtitle: 'Fortaleza Outonal', cols: 4, rows: 4, sizeLabel: '4×4' },
+  { id: 3, name: 'Forja de Obsidiana', subtitle: 'Câmaras Vulcânicas', cols: 4, rows: 4, sizeLabel: '4×4' },
+  { id: 4, name: 'Santuário Abissal', subtitle: 'Ruínas Submersas', cols: 4, rows: 4, sizeLabel: '4×4' },
+  { id: 5, name: 'Castelo de Nijō', subtitle: 'Fortaleza Expandida', cols: 5, rows: 5, sizeLabel: '5×5' },
+  { id: 6, name: 'Labirinto Clássico', subtitle: 'Formato Paper Dungeons', cols: 6, rows: 5, sizeLabel: '6×5' },
+  { id: 7, name: 'Cidadela Imperial', subtitle: 'Campanha Épica', cols: 6, rows: 6, sizeLabel: '6×6' },
 ];
 
+export function getMapDimensions(map: DungeonMap): { cols: number; rows: number } {
+  return {
+    cols: map.cols ?? 4,
+    rows: map.rows ?? 4,
+  };
+}
+
 export function formatCoordLabel(coord: DungeonCoord): string {
-  const row = String.fromCharCode(65 + Math.max(0, Math.min(3, coord.y)));
+  const row = String.fromCharCode(65 + Math.max(0, Math.min(7, coord.y)));
   return `${row}${coord.x + 1}`;
 }
 
@@ -57,10 +70,10 @@ export function rehydrateWalls(walls: Wall[]): Wall[] {
   return walls.map((w) => createWall(w.from.x, w.from.y, w.to.x, w.to.y));
 }
 
-function buildEmptyGrid(): Record<string, RoomState> {
+function buildEmptyGrid(cols = 4, rows = 4): Record<string, RoomState> {
   const rooms: Record<string, RoomState> = {};
-  for (let x = 0; x < 4; x++) {
-    for (let y = 0; y < 4; y++) {
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < rows; y++) {
       const coord: DungeonCoord = { x, y };
       rooms[coordKey(coord)] = {
         coord,
@@ -69,6 +82,33 @@ function buildEmptyGrid(): Record<string, RoomState> {
         cleared: false,
       };
     }
+  }
+  return rooms;
+}
+
+type RoomEntrySpec = Omit<RoomState, 'coord' | 'revealed' | 'cleared'> & {
+  revealed?: boolean;
+  cleared?: boolean;
+};
+
+function populateRooms(
+  cols: number,
+  rows: number,
+  entries: Record<string, RoomEntrySpec>
+): Record<string, RoomState> {
+  const rooms = buildEmptyGrid(cols, rows);
+  for (const [key, spec] of Object.entries(entries)) {
+    const [xs, ys] = key.split(',').map(Number);
+    rooms[key] = {
+      coord: { x: xs, y: ys },
+      revealed: spec.revealed ?? false,
+      cleared: spec.cleared ?? false,
+      type: spec.type,
+      minion: spec.minion,
+      villain: spec.villain,
+      trapDamage: spec.trapDamage,
+      gemsCount: spec.gemsCount,
+    };
   }
   return rooms;
 }
@@ -115,6 +155,8 @@ export function getCanonicalMap1(): DungeonMap {
   return {
     mapId: 1,
     mapName: 'Cripta da Mantícora',
+    cols: 4,
+    rows: 4,
     startCoord: { x: 0, y: 0 },
     currentCoord: { x: 0, y: 0 },
     rooms,
@@ -164,6 +206,8 @@ function getCanonicalMap2(): DungeonMap {
   return {
     mapId: 2,
     mapName: 'Pátio de Sengoku',
+    cols: 4,
+    rows: 4,
     startCoord: { x: 0, y: 0 },
     currentCoord: { x: 0, y: 0 },
     rooms,
@@ -213,6 +257,8 @@ function getCanonicalMap3(): DungeonMap {
   return {
     mapId: 3,
     mapName: 'Forja de Obsidiana',
+    cols: 4,
+    rows: 4,
     startCoord: { x: 0, y: 0 },
     currentCoord: { x: 0, y: 0 },
     rooms,
@@ -262,6 +308,216 @@ function getCanonicalMap4(): DungeonMap {
   return {
     mapId: 4,
     mapName: 'Santuário Abissal',
+    cols: 4,
+    rows: 4,
+    startCoord: { x: 0, y: 0 },
+    currentCoord: { x: 0, y: 0 },
+    rooms,
+    walls,
+    visitedCoords: [{ x: 0, y: 0 }],
+  };
+}
+
+function getCanonicalMap5(): DungeonMap {
+  const cols = 5;
+  const rows = 5;
+  const ashigaru: Minion = { id: 'm_goblin', name: 'Ashigaru da Muralha', reqLevel: 1, glory: 2, damage: 1, classAffinity: 'rogue' };
+  const yari: Minion = { id: 'm_skeleton', name: 'Lanceiro Yari', reqLevel: 2, glory: 3, damage: 2, classAffinity: 'cleric' };
+  const samurai: Minion = { id: 'm_orc', name: 'Samurai Blindado', reqLevel: 3, glory: 4, damage: 2, classAffinity: 'warrior' };
+  const oni: Minion = { id: 'm_troll', name: 'Oni Guardião', reqLevel: 4, glory: 5, damage: 3, classAffinity: 'mage' };
+
+  const kitsune: Villain = { id: 'v_manticore', name: 'Kitsune Carmesim', round: 3, tier1Power: 6, tier1Glory: 8, tier2Power: 4, tier2Glory: 4, defeatDamage: 2 };
+  const tenguGeneral: Villain = { id: 'v_beholder', name: 'General Tengu', round: 6, tier1Power: 10, tier1Glory: 12, tier2Power: 7, tier2Glory: 6, defeatDamage: 3 };
+  const emperorDragon: Villain = { id: 'v_dragon', name: 'Imperador Dragão', round: 8, tier1Power: 14, tier1Glory: 16, tier2Power: 10, tier2Glory: 8, defeatDamage: 4 };
+
+  const rooms = populateRooms(cols, rows, {
+    '0,0': { type: 'start', revealed: true, cleared: true },
+    '1,0': { type: 'minion', minion: ashigaru },
+    '2,0': { type: 'gem', gemsCount: 1 },
+    '3,0': { type: 'item' },
+    '4,0': { type: 'minion', minion: yari },
+    '0,1': { type: 'trap', trapDamage: 1 },
+    '1,1': { type: 'gem', gemsCount: 2 },
+    '2,1': { type: 'minion', minion: yari },
+    '3,1': { type: 'trap', trapDamage: 1 },
+    '4,1': { type: 'boss', villain: kitsune },
+    '0,2': { type: 'minion', minion: ashigaru },
+    '1,2': { type: 'item' },
+    '2,2': { type: 'minion', minion: samurai },
+    '3,2': { type: 'gem', gemsCount: 2 },
+    '4,2': { type: 'trap', trapDamage: 2 },
+    '0,3': { type: 'gem', gemsCount: 2 },
+    '1,3': { type: 'trap', trapDamage: 2 },
+    '2,3': { type: 'boss', villain: tenguGeneral },
+    '3,3': { type: 'minion', minion: oni },
+    '4,3': { type: 'item' },
+    '0,4': { type: 'minion', minion: samurai },
+    '1,4': { type: 'gem', gemsCount: 2 },
+    '2,4': { type: 'minion', minion: oni },
+    '3,4': { type: 'trap', trapDamage: 2 },
+    '4,4': { type: 'boss', villain: emperorDragon },
+  });
+
+  const walls: Wall[] = [
+    createWall(0, 0, 0, 1),
+    createWall(2, 0, 2, 1),
+    createWall(1, 2, 2, 2),
+    createWall(3, 1, 3, 2),
+    createWall(2, 3, 2, 4),
+    createWall(3, 3, 4, 3),
+  ];
+
+  return {
+    mapId: 5,
+    mapName: 'Castelo de Nijō',
+    cols,
+    rows,
+    startCoord: { x: 0, y: 0 },
+    currentCoord: { x: 0, y: 0 },
+    rooms,
+    walls,
+    visitedCoords: [{ x: 0, y: 0 }],
+  };
+}
+
+function getCanonicalMap6(): DungeonMap {
+  const cols = 6;
+  const rows = 5;
+  const goblin: Minion = { id: 'm_goblin', name: 'Goblin Ladino', reqLevel: 1, glory: 2, damage: 1, classAffinity: 'rogue' };
+  const skeleton: Minion = { id: 'm_skeleton', name: 'Esqueleto Sentinela', reqLevel: 2, glory: 3, damage: 2, classAffinity: 'cleric' };
+  const orc: Minion = { id: 'm_orc', name: 'Orc Saqueador', reqLevel: 3, glory: 4, damage: 2, classAffinity: 'warrior' };
+  const troll: Minion = { id: 'm_troll', name: 'Troll de Pedra', reqLevel: 4, glory: 5, damage: 3, classAffinity: 'mage' };
+
+  const manticore: Villain = { id: 'v_manticore', name: 'Mantícora da Galeria', round: 3, tier1Power: 6, tier1Glory: 8, tier2Power: 4, tier2Glory: 4, defeatDamage: 2 };
+  const beholder: Villain = { id: 'v_beholder', name: 'Tirano Ocular', round: 6, tier1Power: 10, tier1Glory: 12, tier2Power: 7, tier2Glory: 6, defeatDamage: 3 };
+  const dragon: Villain = { id: 'v_dragon', name: 'Dragão Vermelho Ancião', round: 8, tier1Power: 14, tier1Glory: 16, tier2Power: 10, tier2Glory: 8, defeatDamage: 4 };
+
+  const rooms = populateRooms(cols, rows, {
+    '0,0': { type: 'start', revealed: true, cleared: true },
+    '1,0': { type: 'minion', minion: goblin },
+    '2,0': { type: 'gem', gemsCount: 1 },
+    '3,0': { type: 'trap', trapDamage: 1 },
+    '4,0': { type: 'item' },
+    '5,0': { type: 'gem', gemsCount: 2 },
+    '0,1': { type: 'trap', trapDamage: 1 },
+    '1,1': { type: 'item' },
+    '2,1': { type: 'minion', minion: skeleton },
+    '3,1': { type: 'gem', gemsCount: 2 },
+    '4,1': { type: 'boss', villain: manticore },
+    '5,1': { type: 'minion', minion: skeleton },
+    '0,2': { type: 'minion', minion: goblin },
+    '1,2': { type: 'gem', gemsCount: 2 },
+    '2,2': { type: 'trap', trapDamage: 2 },
+    '3,2': { type: 'minion', minion: orc },
+    '4,2': { type: 'gem', gemsCount: 1 },
+    '5,2': { type: 'item' },
+    '0,3': { type: 'item' },
+    '1,3': { type: 'minion', minion: skeleton },
+    '2,3': { type: 'boss', villain: beholder },
+    '3,3': { type: 'trap', trapDamage: 2 },
+    '4,3': { type: 'minion', minion: troll },
+    '5,3': { type: 'gem', gemsCount: 2 },
+    '0,4': { type: 'gem', gemsCount: 2 },
+    '1,4': { type: 'minion', minion: orc },
+    '2,4': { type: 'trap', trapDamage: 2 },
+    '3,4': { type: 'minion', minion: troll },
+    '4,4': { type: 'item' },
+    '5,4': { type: 'boss', villain: dragon },
+  });
+
+  const walls: Wall[] = [
+    createWall(1, 0, 1, 1),
+    createWall(3, 0, 3, 1),
+    createWall(0, 2, 1, 2),
+    createWall(2, 2, 3, 2),
+    createWall(4, 1, 4, 2),
+    createWall(1, 3, 2, 3),
+    createWall(3, 3, 3, 4),
+    createWall(4, 3, 5, 3),
+  ];
+
+  return {
+    mapId: 6,
+    mapName: 'Labirinto Clássico',
+    cols,
+    rows,
+    startCoord: { x: 0, y: 0 },
+    currentCoord: { x: 0, y: 0 },
+    rooms,
+    walls,
+    visitedCoords: [{ x: 0, y: 0 }],
+  };
+}
+
+function getCanonicalMap7(): DungeonMap {
+  const cols = 6;
+  const rows = 6;
+  const scout: Minion = { id: 'm_goblin', name: 'Batedor da Cidadela', reqLevel: 1, glory: 2, damage: 1, classAffinity: 'rogue' };
+  const sentinel: Minion = { id: 'm_skeleton', name: 'Sentinela Ósseo', reqLevel: 2, glory: 3, damage: 2, classAffinity: 'cleric' };
+  const brute: Minion = { id: 'm_orc', name: 'Oni da Vanguarda', reqLevel: 3, glory: 4, damage: 2, classAffinity: 'warrior' };
+  const colossusMinion: Minion = { id: 'm_troll', name: 'Guardião Colossal', reqLevel: 4, glory: 5, damage: 3, classAffinity: 'mage' };
+
+  const chimera: Villain = { id: 'v_manticore', name: 'Quimera da Guarita', round: 3, tier1Power: 6, tier1Glory: 8, tier2Power: 4, tier2Glory: 4, defeatDamage: 2 };
+  const archon: Villain = { id: 'v_beholder', name: 'Arconte Abissal', round: 6, tier1Power: 10, tier1Glory: 12, tier2Power: 7, tier2Glory: 6, defeatDamage: 3 };
+  const celestialDragon: Villain = { id: 'v_dragon', name: 'Dragão Celestial de Brasas', round: 8, tier1Power: 14, tier1Glory: 16, tier2Power: 10, tier2Glory: 8, defeatDamage: 4 };
+
+  const rooms = populateRooms(cols, rows, {
+    '0,0': { type: 'start', revealed: true, cleared: true },
+    '1,0': { type: 'minion', minion: scout },
+    '2,0': { type: 'gem', gemsCount: 1 },
+    '3,0': { type: 'minion', minion: sentinel },
+    '4,0': { type: 'item' },
+    '5,0': { type: 'gem', gemsCount: 2 },
+    '0,1': { type: 'trap', trapDamage: 1 },
+    '1,1': { type: 'gem', gemsCount: 2 },
+    '2,1': { type: 'item' },
+    '3,1': { type: 'trap', trapDamage: 1 },
+    '4,1': { type: 'boss', villain: chimera },
+    '5,1': { type: 'minion', minion: sentinel },
+    '0,2': { type: 'minion', minion: scout },
+    '1,2': { type: 'trap', trapDamage: 2 },
+    '2,2': { type: 'minion', minion: brute },
+    '3,2': { type: 'gem', gemsCount: 2 },
+    '4,2': { type: 'minion', minion: brute },
+    '5,2': { type: 'item' },
+    '0,3': { type: 'gem', gemsCount: 2 },
+    '1,3': { type: 'minion', minion: sentinel },
+    '2,3': { type: 'boss', villain: archon },
+    '3,3': { type: 'item' },
+    '4,3': { type: 'trap', trapDamage: 2 },
+    '5,3': { type: 'minion', minion: colossusMinion },
+    '0,4': { type: 'minion', minion: brute },
+    '1,4': { type: 'item' },
+    '2,4': { type: 'trap', trapDamage: 2 },
+    '3,4': { type: 'gem', gemsCount: 2 },
+    '4,4': { type: 'minion', minion: colossusMinion },
+    '5,4': { type: 'trap', trapDamage: 2 },
+    '0,5': { type: 'trap', trapDamage: 2 },
+    '1,5': { type: 'gem', gemsCount: 2 },
+    '2,5': { type: 'minion', minion: colossusMinion },
+    '3,5': { type: 'item' },
+    '4,5': { type: 'gem', gemsCount: 2 },
+    '5,5': { type: 'boss', villain: celestialDragon },
+  });
+
+  const walls: Wall[] = [
+    createWall(0, 0, 0, 1),
+    createWall(2, 0, 2, 1),
+    createWall(4, 0, 4, 1),
+    createWall(1, 2, 2, 2),
+    createWall(3, 1, 3, 2),
+    createWall(2, 3, 2, 4),
+    createWall(4, 2, 5, 2),
+    createWall(0, 4, 1, 4),
+    createWall(3, 4, 4, 4),
+    createWall(4, 4, 4, 5),
+  ];
+
+  return {
+    mapId: 7,
+    mapName: 'Cidadela Imperial',
+    cols,
+    rows,
     startCoord: { x: 0, y: 0 },
     currentCoord: { x: 0, y: 0 },
     rooms,
@@ -278,12 +534,19 @@ export function getCanonicalMap(mapId: number): DungeonMap {
       return getCanonicalMap3();
     case 4:
       return getCanonicalMap4();
+    case 5:
+      return getCanonicalMap5();
+    case 6:
+      return getCanonicalMap6();
+    case 7:
+      return getCanonicalMap7();
     default:
       return getCanonicalMap1();
   }
 }
 
 export function getValidMoves(map: DungeonMap, from: DungeonCoord, maxSteps: number = 2): DungeonCoord[] {
+  const { cols, rows } = getMapDimensions(map);
   const validMoves: DungeonCoord[] = [];
   const visited = new Map<string, number>();
 
@@ -309,7 +572,7 @@ export function getValidMoves(map: DungeonMap, from: DungeonCoord, maxSteps: num
     for (const dir of directions) {
       const nextCoord: DungeonCoord = { x: coord.x + dir.dx, y: coord.y + dir.dy };
 
-      if (nextCoord.x < 0 || nextCoord.x > 3 || nextCoord.y < 0 || nextCoord.y > 3) {
+      if (nextCoord.x < 0 || nextCoord.x >= cols || nextCoord.y < 0 || nextCoord.y >= rows) {
         continue;
       }
 
@@ -343,6 +606,7 @@ export function getShortestPath(
 ): DungeonCoord[] {
   if (coordEq(from, to)) return [from];
 
+  const { cols, rows } = getMapDimensions(map);
   const queue: { coord: DungeonCoord; path: DungeonCoord[] }[] = [
     { coord: from, path: [from] },
   ];
@@ -360,7 +624,7 @@ export function getShortestPath(
 
     for (const dir of directions) {
       const nextCoord: DungeonCoord = { x: coord.x + dir.dx, y: coord.y + dir.dy };
-      if (nextCoord.x < 0 || nextCoord.x > 3 || nextCoord.y < 0 || nextCoord.y > 3) {
+      if (nextCoord.x < 0 || nextCoord.x >= cols || nextCoord.y < 0 || nextCoord.y >= rows) {
         continue;
       }
       if (map.walls.some((w) => isWallBlocking(w, coord, nextCoord))) {
