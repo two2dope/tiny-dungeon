@@ -225,6 +225,14 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
           }}
           className="touch-target flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-amber-700 via-amber-600 to-amber-700 text-stone-100 font-serif font-semibold text-xs tracking-wider uppercase rounded-lg border border-amber-400/50 shadow-[0_0_15px_rgba(217,119,6,0.3)] hover:brightness-110 active:scale-95 transition-all"
         >
+          {isSengoku && (
+            <span
+              aria-hidden="true"
+              className="w-4 h-4 rounded-sm bg-red-700 border border-red-300/70 text-[10px] leading-none font-serif font-bold text-amber-100 flex items-center justify-center shadow-inner"
+            >
+              印
+            </span>
+          )}
           <Check className="w-4 h-4 stroke-[2.5]" />
           <span>Confirmar</span>
         </button>

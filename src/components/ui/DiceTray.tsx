@@ -2,15 +2,8 @@ import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Die, DieSymbol } from '../../engine/types';
 import { soundEngine } from '../../audio/soundEngine';
-import {
-  Footprints,
-  Sword,
-  Wand2,
-  KeyRound,
-  Shield,
-  Skull,
-  CheckCircle2,
-} from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
+import { DieSymbolSvg } from './TacticalIcons';
 
 export const DiceTray: React.FC = () => {
   const dicePool = useGameStore((state) => state.dicePool);
@@ -19,23 +12,6 @@ export const DiceTray: React.FC = () => {
   const theme = useGameStore((state) => state.theme);
   const stageDraft = useGameStore((state) => state.stageDraft);
   const selectDie = useGameStore((state) => state.selectDie);
-
-  const getSymbolIcon = (symbol: DieSymbol) => {
-    switch (symbol) {
-      case 'boot':
-        return <Footprints className="w-5 h-5 text-amber-400" />;
-      case 'sword':
-        return <Sword className="w-5 h-5 text-orange-400" />;
-      case 'magic':
-        return <Wand2 className="w-5 h-5 text-purple-400" />;
-      case 'rogue':
-        return <KeyRound className="w-5 h-5 text-emerald-400" />;
-      case 'shield':
-        return <Shield className="w-5 h-5 text-sky-400" />;
-      case 'skull':
-        return <Skull className="w-5 h-5 text-rose-500" />;
-    }
-  };
 
   const getSymbolLabel = (die: Die) => {
     switch (die.symbol) {
@@ -68,12 +44,16 @@ export const DiceTray: React.FC = () => {
 
   return (
     <div
-      className={`backdrop-blur-md border p-2.5 sm:p-3 rounded-xl shadow-2xl flex flex-col gap-2 ${
+      className={`relative backdrop-blur-md border p-2.5 sm:p-3 rounded-xl shadow-2xl flex flex-col gap-2 ${
         isSengoku
-          ? 'bg-[#251b14]/95 border-amber-800/60'
+          ? 'bg-[#251b14]/95 border-amber-700/70'
           : 'bg-dungeon-surface/90 border-dungeon-border'
       }`}
     >
+      <span aria-hidden="true" className="pointer-events-none absolute top-1 left-1 w-2.5 h-2.5 border-t-2 border-l-2 border-amber-400/70 rounded-tl" />
+      <span aria-hidden="true" className="pointer-events-none absolute top-1 right-1 w-2.5 h-2.5 border-t-2 border-r-2 border-amber-400/70 rounded-tr" />
+      <span aria-hidden="true" className="pointer-events-none absolute bottom-1 left-1 w-2.5 h-2.5 border-b-2 border-l-2 border-amber-400/70 rounded-bl" />
+      <span aria-hidden="true" className="pointer-events-none absolute bottom-1 right-1 w-2.5 h-2.5 border-b-2 border-r-2 border-amber-400/70 rounded-br" />
       <div className="flex items-center justify-between text-[11px] font-mono px-1 gap-3 tabular-nums">
         <span className="text-stone-300 uppercase tracking-wider">Dados da Rodada</span>
         <span className={remaining === 0 ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
@@ -105,7 +85,7 @@ export const DiceTray: React.FC = () => {
                 }
               }}
               title={`${isWhite ? 'Dado Branco' : 'Dado Negro'}: ${getSymbolLabel(die)}`}
-              className={`touch-target relative flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-lg border transition-all duration-150 ${bgStyle} ${
+              className={`group touch-target relative flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-lg border transition-all duration-150 ${bgStyle} ${
                 isConsumed
                   ? 'opacity-35 grayscale cursor-not-allowed'
                   : isSelected
@@ -121,7 +101,7 @@ export const DiceTray: React.FC = () => {
                 </div>
               )}
 
-              {getSymbolIcon(die.symbol)}
+              <DieSymbolSvg symbol={die.symbol} className="w-6 h-6" />
 
               <span className="text-[10px] font-mono mt-1 capitalize">
                 {ptSymbol[die.symbol]}

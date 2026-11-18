@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
-import { useGameStore } from '../../store/gameStore';
-import { formatCoordLabel, getValidMoves } from '../../engine/dungeon';
+import { EventFeedback, useGameStore } from '../../store/gameStore';
+import { formatCoordLabel, getShortestPath, getValidMoves } from '../../engine/dungeon';
 import { RoomTile3D } from './RoomTile3D';
 import { Walls3D } from './Walls3D';
 import { PartyPawn3D } from './PartyPawn3D';
@@ -48,14 +48,129 @@ const AmbientMotes: React.FC<{ theme: ThemeId; isPaused: boolean }> = ({ theme, 
   );
 };
 
+const TacticalPath3D: React.FC<{ path: DungeonCoord[]; tileSize: number }> = ({
+  path,
+  tileSize,
+}) => {
+  if (path.length < 2) return null;
+
+  return (
+    <group>
+      {path.slice(0, -1).map((from, idx) => {
+        const to = path[idx + 1];
+        const dx = to.x - from.x;
+        const dz = to.y - from.y;
+        const midX = ((from.x + to.x) / 2) * tileSize;
+        const midZ = ((from.y + to.y) / 2) * tileSize;
+        const rotY = Math.atan2(dx, dz);
+
+        return (
+          <group key={`seg-${idx}`} position={[midX, 0.14, midZ]} rotation={[0, rotY, 0]}>
+            <mesh>
+              <boxGeometry args={[0.18, 0.04, tileSize * 0.92]} />
+              <meshBasicMaterial color="#fbbf24" transparent opacity={0.85} />
+            </mesh>
+            <mesh position={[0, 0.04, 0.25]} rotation={[Math.PI / 2, 0, 0]}>
+              <coneGeometry args={[0.2, 0.42, 4]} />
+              <meshBasicMaterial color="#fde047" />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
+  );
+};
+
+const ActionBurst3D: React.FC<{
+  coord: DungeonCoord;
+  feedback: EventFeedback | null;
+  tileSize: number;
+  isPaused: boolean;
+}> = ({ coord, feedback, tileSize, isPaused }) => {
+  const groupRef = useRef<THREE.Group>(null);
+  const ringRef = useRef<THREE.Mesh>(null);
+  const sparksRef = useRef<THREE.Group>(null);
+  const progressRef = useRef<number>(1);
+  const lastIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (feedback && feedback.id !== lastIdRef.current) {
+      lastIdRef.current = feedback.id;
+      progressRef.current = 0;
+    }
+  }, [feedback]);
+
+  const toneColor =
+    feedback?.tone === 'damage'
+      ? '#ef4444'
+      : feedback?.tone === 'glory'
+        ? '#fbbf24'
+        : feedback?.tone === 'heal'
+          ? '#34d399'
+          : '#38bdf8';
+
+  useFrame((_, delta) => {
+    if (isPaused || !groupRef.current) return;
+    if (progressRef.current >= 1) {
+      groupRef.current.visible = false;
+      return;
+    }
+    groupRef.current.visible = true;
+    progressRef.current = Math.min(1, progressRef.current + delta / 0.6);
+    const p = progressRef.current;
+
+    if (ringRef.current) {
+      const s = 0.4 + p * 1.9;
+      ringRef.current.scale.set(s, s, 1);
+      (ringRef.current.material as THREE.MeshBasicMaterial).opacity = (1 - p) * 0.9;
+    }
+    if (sparksRef.current) {
+      sparksRef.current.children.forEach((child, idx) => {
+        const angle = (idx / 6) * Math.PI * 2;
+        const radius = 0.25 + p * 0.95;
+        child.position.set(
+          Math.cos(angle) * radius,
+          0.25 + p * 1.35,
+          Math.sin(angle) * radius
+        );
+        const shrink = Math.max(0.05, 1 - p * 0.85);
+        child.scale.setScalar(shrink);
+      });
+    }
+  });
+
+  return (
+    <group
+      ref={groupRef}
+      visible={false}
+      position={[coord.x * tileSize, 0.12, coord.y * tileSize]}
+    >
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.45, 0.65, 24]} />
+        <meshBasicMaterial color={toneColor} transparent opacity={0.9} />
+      </mesh>
+      <group ref={sparksRef}>
+        {Array.from({ length: 6 }).map((_, idx) => (
+          <mesh key={`spark-${idx}`}>
+            <octahedronGeometry args={[0.11, 0]} />
+            <meshBasicMaterial color={toneColor} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+};
+
 interface DungeonSceneProps {
   onTileSelect: (coord: DungeonCoord) => void;
+  hoveredRoom: RoomState | null;
   onHoverRoom: (room: RoomState | null) => void;
   isPaused: boolean;
 }
 
 const DungeonScene: React.FC<DungeonSceneProps> = ({
   onTileSelect,
+  hoveredRoom,
   onHoverRoom,
   isPaused,
 }) => {
@@ -64,6 +179,7 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
   const selectedDieId = useGameStore((state) => state.selectedDieId);
   const consumedDieIds = useGameStore((state) => state.consumedDieIds);
   const theme = useGameStore((state) => state.theme);
+  const lastEventFeedback = useGameStore((state) => state.lastEventFeedback);
 
   const selectedDie = dicePool.dice.find((d) => d.id === selectedDieId);
   const hasMovementDie = selectedDie && selectedDie.symbol === 'boot';
@@ -77,6 +193,15 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
 
   const tileSize = 2.6;
   const centerOffset = 1.5 * tileSize;
+
+  const tacticalPath = useMemo(() => {
+    if (!hoveredRoom || !canAct) return [];
+    const isTargetValid = validMoves.some(
+      (m) => m.x === hoveredRoom.coord.x && m.y === hoveredRoom.coord.y
+    );
+    if (!isTargetValid) return [];
+    return getShortestPath(dungeon, dungeon.currentCoord, hoveredRoom.coord, steps);
+  }, [dungeon, hoveredRoom, validMoves, canAct, steps]);
 
   const torchMain = theme === 'sengoku' ? '#ffb347' : '#ff944d';
   const torchAlt = theme === 'sengoku' ? '#fb923c' : '#ffaa66';
@@ -132,7 +257,14 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
       })}
 
       <Walls3D walls={dungeon.walls} theme={theme} />
+      <TacticalPath3D path={tacticalPath} tileSize={tileSize} />
       <PartyPawn3D coord={dungeon.currentCoord} theme={theme} isPaused={isPaused} />
+      <ActionBurst3D
+        coord={dungeon.currentCoord}
+        feedback={lastEventFeedback}
+        tileSize={tileSize}
+        isPaused={isPaused}
+      />
     </group>
   );
 };
@@ -208,6 +340,7 @@ export const DungeonCanvas: React.FC = () => {
         <color attach="background" args={[clearColor]} />
         <DungeonScene
           onTileSelect={stageMove}
+          hoveredRoom={hoveredRoom}
           onHoverRoom={setHoveredRoom}
           isPaused={isPaused}
         />

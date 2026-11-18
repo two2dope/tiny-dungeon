@@ -53,10 +53,23 @@ export const PartyPawn3D: React.FC<PartyPawn3DProps> = ({
 
   return (
     <group ref={rootRef} position={[targetX, 0, targetZ]}>
-      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 0]}>
+      <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.09, 0]}>
         <ringGeometry args={[0.56, 0.72, 32]} />
         <meshBasicMaterial color={ringColor} transparent opacity={0.85} />
       </mesh>
+
+      {/* 4 cardinal tactical compass arrows on floor */}
+      {[
+        { pos: [0, 0.095, -0.88] as [number, number, number], rot: [-Math.PI / 2, 0, 0] as [number, number, number] },
+        { pos: [0, 0.095, 0.88] as [number, number, number], rot: [Math.PI / 2, 0, 0] as [number, number, number] },
+        { pos: [0.88, 0.095, 0] as [number, number, number], rot: [0, 0, -Math.PI / 2] as [number, number, number] },
+        { pos: [-0.88, 0.095, 0] as [number, number, number], rot: [0, 0, Math.PI / 2] as [number, number, number] },
+      ].map((arrow, idx) => (
+        <mesh key={`arrow-${idx}`} position={arrow.pos} rotation={arrow.rot}>
+          <coneGeometry args={[0.14, 0.28, 3]} />
+          <meshBasicMaterial color="#fde047" transparent opacity={0.85} />
+        </mesh>
+      ))}
 
       <group ref={pawnRef} position={[0, 0.52, 0]}>
         {/* Pedestal */}

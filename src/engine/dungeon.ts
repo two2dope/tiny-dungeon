@@ -335,6 +335,52 @@ export function getValidMoves(map: DungeonMap, from: DungeonCoord, maxSteps: num
   return validMoves;
 }
 
+export function getShortestPath(
+  map: DungeonMap,
+  from: DungeonCoord,
+  to: DungeonCoord,
+  maxSteps: number = 2
+): DungeonCoord[] {
+  if (coordEq(from, to)) return [from];
+
+  const queue: { coord: DungeonCoord; path: DungeonCoord[] }[] = [
+    { coord: from, path: [from] },
+  ];
+  const visited = new Set<string>([coordKey(from)]);
+  const directions = [
+    { dx: 1, dy: 0 },
+    { dx: -1, dy: 0 },
+    { dx: 0, dy: 1 },
+    { dx: 0, dy: -1 },
+  ];
+
+  while (queue.length > 0) {
+    const { coord, path } = queue.shift()!;
+    if (path.length - 1 >= maxSteps) continue;
+
+    for (const dir of directions) {
+      const nextCoord: DungeonCoord = { x: coord.x + dir.dx, y: coord.y + dir.dy };
+      if (nextCoord.x < 0 || nextCoord.x > 3 || nextCoord.y < 0 || nextCoord.y > 3) {
+        continue;
+      }
+      if (map.walls.some((w) => isWallBlocking(w, coord, nextCoord))) {
+        continue;
+      }
+      const nextKey = coordKey(nextCoord);
+      if (visited.has(nextKey)) continue;
+
+      const nextPath = [...path, nextCoord];
+      if (coordEq(nextCoord, to)) {
+        return nextPath;
+      }
+      visited.add(nextKey);
+      queue.push({ coord: nextCoord, path: nextPath });
+    }
+  }
+
+  return [];
+}
+
 export function executeMove(
   map: DungeonMap,
   target: DungeonCoord

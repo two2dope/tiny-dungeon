@@ -1,9 +1,10 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { RoomState, ThemeId } from '../../engine/types';
 import { formatCoordLabel } from '../../engine/dungeon';
+import { getSlabTexture } from './proceduralTextures';
 
 interface RoomTile3DProps {
   room: RoomState;
@@ -43,6 +44,7 @@ export const RoomTile3D: React.FC<RoomTile3DProps> = ({
   });
 
   const isSengoku = theme === 'sengoku';
+  const slabTexture = useMemo(() => getSlabTexture(theme), [theme]);
 
   let floorColor = isSengoku ? '#786754' : '#3f4c63';
   if (isCurrent) floorColor = isSengoku ? '#d6b88e' : '#64748b';
@@ -145,7 +147,14 @@ export const RoomTile3D: React.FC<RoomTile3DProps> = ({
         }}
       >
         <boxGeometry args={[tileSize * 0.92, 0.12, tileSize * 0.92]} />
-        <meshStandardMaterial color={floorColor} roughness={0.65} metalness={0.12} />
+        <meshStandardMaterial
+          color={floorColor}
+          map={slabTexture ?? undefined}
+          bumpMap={slabTexture ?? undefined}
+          bumpScale={0.03}
+          roughness={0.65}
+          metalness={0.12}
+        />
       </mesh>
 
       {/* Valid Move Highlighter */}

@@ -4,11 +4,8 @@ import { HeroClass } from '../../engine/types';
 import { HERO_CLOAK_AFFINITY } from '../../engine/heroes';
 import { calculatePartyPower } from '../../engine/combat';
 import { soundEngine } from '../../audio/soundEngine';
+import { HeroCrestSvg } from './TacticalIcons';
 import {
-  Sword,
-  Wand2,
-  Shield,
-  KeyRound,
   FlaskConical,
   Sparkles,
   Gem,
@@ -52,28 +49,28 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
       classType: 'warrior',
       name: 'Guerreiro',
       role: 'Espada • Manto Branco',
-      icon: <Sword className="w-4 h-4 text-orange-500" />,
+      icon: <HeroCrestSvg classType="warrior" className="w-9 h-9" />,
       accent: isSengoku ? 'border-amber-900/40 bg-amber-950/10' : 'border-orange-500/30 bg-orange-950/10',
     },
     {
       classType: 'mage',
       name: 'Mago',
       role: 'Cajado • Manto Preto',
-      icon: <Wand2 className="w-4 h-4 text-purple-500" />,
+      icon: <HeroCrestSvg classType="mage" className="w-9 h-9" />,
       accent: isSengoku ? 'border-stone-700/40 bg-stone-900/10' : 'border-purple-500/30 bg-purple-950/10',
     },
     {
       classType: 'cleric',
       name: 'Clérigo',
       role: 'Escudo • Manto Branco',
-      icon: <Shield className="w-4 h-4 text-sky-500" />,
+      icon: <HeroCrestSvg classType="cleric" className="w-9 h-9" />,
       accent: isSengoku ? 'border-amber-900/40 bg-amber-950/10' : 'border-sky-500/30 bg-sky-950/10',
     },
     {
       classType: 'rogue',
       name: 'Ladino',
       role: 'Chave • Manto Preto',
-      icon: <KeyRound className="w-4 h-4 text-emerald-600" />,
+      icon: <HeroCrestSvg classType="rogue" className="w-9 h-9" />,
       accent: isSengoku ? 'border-stone-700/40 bg-stone-900/10' : 'border-emerald-500/30 bg-emerald-950/10',
     },
   ];
@@ -95,6 +92,9 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
       aria-label="The Ember Measure — Comitiva e Missões"
       className={`fixed inset-y-0 left-0 w-[min(22rem,92vw)] backdrop-blur-xl border-r p-4 sm:p-5 shadow-2xl z-40 flex flex-col justify-between overflow-y-auto ${surfaceCls}`}
     >
+      {isSengoku && (
+        <div aria-hidden="true" className="h-2.5 w-full rounded-full bg-gradient-to-r from-stone-900 via-amber-900 to-stone-900 border border-amber-700/60 mb-3 shrink-0 shadow" />
+      )}
       <div className="space-y-4">
         <div className={`flex items-center justify-between pb-3 border-b ${isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'}`}>
           <div>
@@ -266,6 +266,9 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
           ))}
         </div>
       </div>
+      {isSengoku && (
+        <div aria-hidden="true" className="h-2.5 w-full rounded-full bg-gradient-to-r from-stone-900 via-amber-900 to-stone-900 border border-amber-700/60 mt-4 shrink-0 shadow" />
+      )}
     </aside>
   );
 };

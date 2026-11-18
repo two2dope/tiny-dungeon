@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ThemeId, Wall } from '../../engine/types';
+import { getWallTexture } from './proceduralTextures';
 
 interface Walls3DProps {
   walls: Wall[];
@@ -8,6 +9,7 @@ interface Walls3DProps {
 
 export const Walls3D: React.FC<Walls3DProps> = ({ walls, theme = 'sengoku' }) => {
   const tileSize = 2.6;
+  const wallTexture = useMemo(() => getWallTexture(theme), [theme]);
 
   const perimeterWalls = [
     { pos: [1.5 * tileSize, 0.45, -0.5 * tileSize] as [number, number, number], size: [4 * tileSize + 0.4, 0.9, 0.32] as [number, number, number] },
@@ -27,7 +29,14 @@ export const Walls3D: React.FC<Walls3DProps> = ({ walls, theme = 'sengoku' }) =>
         <group key={`perim-${idx}`} position={pw.pos}>
           <mesh castShadow receiveShadow>
             <boxGeometry args={pw.size} />
-            <meshStandardMaterial color={perimColor} roughness={0.65} metalness={0.12} />
+            <meshStandardMaterial
+              color={perimColor}
+              map={wallTexture ?? undefined}
+              bumpMap={wallTexture ?? undefined}
+              bumpScale={0.04}
+              roughness={0.65}
+              metalness={0.12}
+            />
           </mesh>
           <mesh position={[0, 0.48, 0]}>
             <boxGeometry args={[pw.size[0] + 0.08, 0.1, pw.size[2] + 0.08]} />
@@ -51,6 +60,9 @@ export const Walls3D: React.FC<Walls3DProps> = ({ walls, theme = 'sengoku' }) =>
               <boxGeometry args={wallSize} />
               <meshStandardMaterial
                 color={innerWallColor}
+                map={wallTexture ?? undefined}
+                bumpMap={wallTexture ?? undefined}
+                bumpScale={0.04}
                 roughness={0.65}
                 metalness={0.15}
               />

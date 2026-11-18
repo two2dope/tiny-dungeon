@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getCanonicalMap1, getValidMoves, executeMove } from '../../src/engine/dungeon';
+import { getCanonicalMap1, getValidMoves, getShortestPath, executeMove } from '../../src/engine/dungeon';
 
 describe('Dungeon Navigation', () => {
   it('should load canonical Map 1 with 16 rooms and designated start position', () => {
@@ -25,5 +25,16 @@ describe('Dungeon Navigation', () => {
     const { updatedMap, events } = executeMove(map, target);
     expect(updatedMap.visitedCoords).toContainEqual(target);
     expect(events).toBeDefined();
+  });
+
+  it('should compute shortest BFS path respecting wall obstacles', () => {
+    const map = getCanonicalMap1();
+    expect(getShortestPath(map, { x: 0, y: 0 }, { x: 2, y: 0 }, 2)).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: 2, y: 0 },
+    ]);
+    // Wall blocks direct vertical move (0,0) -> (0,1) in 1 step
+    expect(getShortestPath(map, { x: 0, y: 0 }, { x: 0, y: 1 }, 1)).toEqual([]);
   });
 });
