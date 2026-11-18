@@ -1,60 +1,47 @@
 # STATE: Tiny Dungeon — The Ember Measure
 
-**Data de Atualização:** 2026-10-24  
-**Status do Projeto:** v1.0.0 Concluído / Pronto para Expansões (v1.1+)  
+**Data de Atualização:** 2026-11-18  
+**Status do Projeto:** v1.1.0 Evoluído (Motor Tático, 4 Mapas, Seletor de Temas, Áudio Procedural & PWA Offline)  
 **Repositório Remoto:** [https://github.com/two2dope/tiny-dungeon](https://github.com/two2dope/tiny-dungeon)  
-**Branch Ativa:** `main`
+**Branch Ativa:** `main` (base `8b2743b` + evolução local não commitada)
 
 ---
 
 ## 1. Visão Geral e Propósito
 
-Adaptação digital independente do aclamado jogo de tabuleiro *roll-and-write* **Paper Dungeons**, com ambientação tática em 3D isométrico (*React Three Fiber / Three.js*) e interface em estética *dark luxury* inspirada em *Vesperfall (ref-c)*.
+Adaptação digital tática de *Paper Dungeons* em 3D isométrico (*React Three Fiber / Three.js*) com **seletor de temas** (**Sengoku & Nanquim** ⇄ **Vesperfall Obsidian**), economia fiel de 3 dados por rodada, 4 mapas canônicos, missões, áudio procedural WebAudio e PWA offline-first.
 
 ---
 
 ## 2. Subsistemas Implementados e Verificados
 
-| Subsistema | Módulo Principal | Testes Unitários | Status |
-| :--- | :--- | :--- | :--- |
-| **Scaffolding & Tooling** | `package.json`, `vite.config.ts`, `tailwind.config.js` | `tests/smoke.test.ts` | Concluído |
-| **Motor de Dados & Draft** | `src/engine/types.ts`, `src/engine/dice.ts` | `tests/engine/dice.test.ts` | Concluído |
-| **Comitiva de 4 Heróis** | `src/engine/heroes.ts` | `tests/engine/heroes.test.ts` | Concluído |
-| **Mapa Canônico 1 & BFS** | `src/engine/dungeon.ts` | `tests/engine/dungeon.test.ts` | Concluído |
-| **Combate & Glória Final** | `src/engine/combat.ts`, `src/engine/scoring.ts` | `tests/engine/combat.test.ts`, `tests/engine/scoring.test.ts` | Concluído |
-| **Store & Undo/Redo** | `src/store/gameStore.ts` | `tests/store/gameStore.test.ts` | Concluído |
-| **Cenário Isométrico 3D** | `src/components/canvas/*` | `tests/components/DungeonCanvas.test.tsx` | Concluído |
-| **HUD & The Ember Measure** | `src/components/ui/*` | `tests/components/UI.test.tsx` | Concluído |
-| **Loop de Jogo Completo** | `src/App.tsx` | `tests/integration/gameLoop.test.ts` | Concluído |
-| **Hero Showcase Landing Page** | `hero.html`, `public/assets/*` | N/A (E2E / Static) | Concluído |
+| Subsistema | Módulo Principal | Testes / Validação | Status |
+|---|---|---|---|
+| **RNG Determinístico & Dados** | `src/engine/rng.ts`, `src/engine/dice.ts`, `src/engine/types.ts` | `tests/engine/dice.test.ts` | Concluído |
+| **Comitiva, Poções & Afinidade** | `src/engine/heroes.ts` | `tests/engine/heroes.test.ts` | Concluído |
+| **4 Mapas Canônicos & BFS** | `src/engine/dungeon.ts` | `tests/engine/dungeon.test.ts` | Concluído |
+| **Combate, Missões & Glória** | `src/engine/combat.ts`, `src/engine/scoring.ts` | `tests/engine/combat.test.ts`, `tests/engine/scoring.test.ts` | Concluído |
+| **Store, Economia 3 Dados & Save** | `src/store/gameStore.ts` | `tests/store/gameStore.test.ts`, `tests/integration/gameLoop.test.ts` | Concluído |
+| **Cena 3D Dual-Theme & Rótulos Táticos** | `src/components/canvas/*` | `tests/components/DungeonCanvas.test.tsx` | Concluído |
+| **HUD Responsiva, Makimono & PNG** | `src/components/ui/*`, `src/App.tsx` | `tests/components/UI.test.tsx` | Concluído |
+| **Áudio Procedural (WebAudio)** | `src/audio/soundEngine.ts` | `npm run build` | Concluído |
+| **PWA Offline-First & Contrato** | `public/manifest.webmanifest`, `public/sw.js`, `ARCHITECTURE.md`, `release.md` | `check_project_surface.py --offline --mobile` | Concluído |
 
 ---
 
 ## 3. Métricas de Validação e Saúde
 
-- **Vitest Suite:** 10 arquivos de teste, 22/22 testes passando (100% de aprovação).
-- **Vite Build:** Compilação de produção gerada em `dist/` sem advertências ou erros.
-- **Git:** Working tree limpa e sincronizada com `origin/main`.
-- **Servidor Dev:** Rodando localmente em `http://localhost:5173/` (jogo) e `http://localhost:5173/hero.html` (showcase).
+- **Vitest Suite (`node ./node_modules/vitest/vitest.mjs run`):** `10` arquivos de teste, `23/23` testes passando (`tests/components/DungeonCanvas.test.tsx` emite aviso `Multiple instances of Three.js being imported` no JSDOM).
+- **TypeScript + Vite Build (`npm run build`):** `tsc` com `0` erros; bundle dividido em `index` (`82.88 kB`), `vendor-r3f` (`292.24 kB`) e `vendor-three` (`690.34 kB`).
+- **Surface Check (`game-over` `--offline --mobile`):** `[PASS]` com `0 finding(s)`.
+- **File-Fit Audit:** `80.7%` (`92/114` itens em conformidade; violações residuais são convenções `PascalCase.tsx`/`camelCase.ts`, bundles `dist/assets/` e imagem preservada da frente *Sengoku & Nanquim*).
+- **Evidência Visual / Browser:** Validado no Chrome via `chrome_devtools` MCP (`?demo=midgame&seed=4242&theme=sengoku`) em desktop `1280x720` e mobile `390x844` — cena, HUD, *The Ember Measure*, troca de tema (`Sengoku` ⇄ `Vesperfall`), troca de mapa (`M1` → `M2`), seleção de dados e abertura/fechamento do drawer mobile verificados. Corrigidos posteriormente `aria-label` mobile em `HUD.tsx`, visibilidade em `TorchLight.tsx`, e aplicado reforço de iluminação 3D (`hemisphereLight` + `directionalLight`), remoção da névoa oclusiva, modelos 1.45x maiores com pedestais por categoria e badges táticos `<Html>` nas 16 salas (`RoomTile3D.tsx`) — captura visual pós-reforço de iluminação `[Não verificado]` no browser.
 
 ---
 
-## 4. Decisões Arquiteturais Críticas (ADR)
+## 4. Artefatos de Governança e Expansão
 
-1. **Desacoplamento do Domínio:**
-   - O diretório `src/engine/` não importa bibliotecas de UI, DOM ou WebGL. Toda a lógica de dados, movimentação, colisão de paredes, combate solo e cálculo de glória é executada em funções puras testáveis sem renderizador.
-2. **Histórico Intra-Turno com Undo/Redo:**
-   - Implementado via pilha de snapshots profundos em Zustand. O jogador pode ensaiar movimentos no mapa 3D, verificar resultados de combate e reverter antes de acionar `confirmRound()`.
-3. **Sem Permadeath Prematuro:**
-   - Fidelidade às regras de Paper Dungeons: a perda total de corações aplica penalidade de ressurreição (-9 glória na apuração) e restaura vida mínima para completar as 8 rodadas.
-4. **Hero Page com Modern Web Guidance:**
-   - Implementada em `hero.html` com `fetchpriority="high"` no banner principal e `loading="lazy"` nas mídias secundárias, micro-interações táteis e sombras multi-camada.
-
----
-
-## 5. Próximos Passos (Roadmap v1.1+)
-
-- [ ] Incorporação das regras da expansão *Sidequest* (rios subterrâneos, baús dourados, sargentos e artefatos).
-- [ ] Inclusão dos Mapas Canônicos 2 a 12.
-- [ ] Efeitos sonoros procedurais (rolagem de dados, cintilação de tochas e passos na pedra).
-- [ ] Exportação de certificado de glória final em imagem PNG / PDF.
+- Contrato arquitetural: [ARCHITECTURE.md](ARCHITECTURE.md)
+- Regras web congeladas: [docs/web-guidance-rules.md](docs/web-guidance-rules.md)
+- Receita de publicação: [release.md](release.md)
+- Frente visual preservada: `assets/gerar-assets.ps1` e `assets/Gemini_Generated_Image_19k19i19k19i19k1.jpeg`

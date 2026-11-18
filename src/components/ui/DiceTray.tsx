@@ -1,6 +1,7 @@
 import React from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { Die, DieSymbol } from '../../engine/types';
+import { soundEngine } from '../../audio/soundEngine';
 import {
   Footprints,
   Sword,
@@ -14,6 +15,8 @@ import {
 export const DiceTray: React.FC = () => {
   const dicePool = useGameStore((state) => state.dicePool);
   const selectedDieId = useGameStore((state) => state.selectedDieId);
+  const consumedDieIds = useGameStore((state) => state.consumedDieIds);
+  const theme = useGameStore((state) => state.theme);
   const stageDraft = useGameStore((state) => state.stageDraft);
   const selectDie = useGameStore((state) => state.selectDie);
 
@@ -37,73 +40,91 @@ export const DiceTray: React.FC = () => {
   const getSymbolLabel = (die: Die) => {
     switch (die.symbol) {
       case 'boot':
-        return 'Movimento (2)';
+        return 'Bota (2 passos)';
       case 'sword':
-        return 'Guerreiro / Combate';
+        return 'Espada (Guerreiro)';
       case 'magic':
-        return 'Mago / Feitiço';
+        return 'Magia (Mago)';
       case 'rogue':
-        return 'Ladino / Ferramenta';
+        return 'Chave (Ladino)';
       case 'shield':
-        return 'Clérigo / Defesa';
+        return 'Escudo (Clérigo)';
       case 'skull':
-        return 'Perigo / Caveira';
+        return 'Crânio (Perigo)';
     }
   };
 
-  const draftedCount = dicePool.draftedIds.length;
+  const ptSymbol: Record<DieSymbol, string> = {
+    boot: 'bota',
+    sword: 'espada',
+    magic: 'magia',
+    rogue: 'ladino',
+    shield: 'escudo',
+    skull: 'crânio',
+  };
+
+  const isSengoku = theme === 'sengoku';
+  const remaining = Math.max(0, 3 - consumedDieIds.length);
 
   return (
-    <div className="bg-dungeon-surface/90 backdrop-blur-md border border-dungeon-border p-3 rounded-xl shadow-2xl flex flex-col gap-2">
-      <div className="flex items-center justify-between text-xs font-mono px-1">
-        <span className="text-stone-400 uppercase tracking-widest">
-          Dados da Rodada
-        </span>
-        <span
-          className={`${
-            draftedCount === 3
-              ? 'text-emerald-400 font-semibold'
-              : 'text-dungeon-copper'
-          }`}
-        >
-          {draftedCount} / 3 Selecionados
+    <div
+      className={`backdrop-blur-md border p-2.5 sm:p-3 rounded-xl shadow-2xl flex flex-col gap-2 ${
+        isSengoku
+          ? 'bg-[#251b14]/95 border-amber-800/60'
+          : 'bg-dungeon-surface/90 border-dungeon-border'
+      }`}
+    >
+      <div className="flex items-center justify-between text-[11px] font-mono px-1 gap-3 tabular-nums">
+        <span className="text-stone-300 uppercase tracking-wider">Dados da Rodada</span>
+        <span className={remaining === 0 ? 'text-emerald-400 font-semibold' : 'text-amber-400'}>
+          {remaining} {remaining === 1 ? 'ação restante' : 'ações restantes'}
         </span>
       </div>
 
-      <div className="grid grid-cols-6 gap-2">
+      <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
         {dicePool.dice.map((die) => {
+          const isConsumed = consumedDieIds.includes(die.id);
           const isDrafted = dicePool.draftedIds.includes(die.id);
           const isSelected = selectedDieId === die.id;
 
           const isWhite = die.color === 'white';
           const bgStyle = isWhite
-            ? 'bg-gradient-to-b from-stone-800 to-stone-900 text-stone-200 border-stone-600/60'
-            : 'bg-gradient-to-b from-stone-950 to-black text-rose-200/90 border-red-950/80';
+            ? 'bg-gradient-to-b from-stone-200 to-stone-300 text-stone-900 border-stone-400'
+            : 'bg-gradient-to-b from-stone-900 to-black text-stone-100 border-stone-700';
 
           return (
             <button
               key={die.id}
+              type="button"
+              disabled={isConsumed}
               onClick={() => {
-                selectDie(die.id);
-                stageDraft(die.id);
+                soundEngine.play('click');
+                selectDie(isSelected ? null : die.id);
+                if (!isDrafted) {
+                  stageDraft(die.id);
+                }
               }}
               title={`${isWhite ? 'Dado Branco' : 'Dado Negro'}: ${getSymbolLabel(die)}`}
-              className={`relative flex flex-col items-center justify-center p-2.5 rounded-lg border transition-all duration-150 ${bgStyle} ${
-                isDrafted
-                  ? 'ring-2 ring-dungeon-gold shadow-[0_0_12px_rgba(212,175,55,0.4)] scale-105'
-                  : 'hover:border-stone-400 opacity-80 hover:opacity-100'
-              } ${isSelected ? 'border-dungeon-ember' : ''}`}
+              className={`touch-target relative flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-lg border transition-all duration-150 ${bgStyle} ${
+                isConsumed
+                  ? 'opacity-35 grayscale cursor-not-allowed'
+                  : isSelected
+                    ? 'ring-2 ring-amber-400 shadow-[0_0_12px_rgba(251,191,36,0.5)] scale-105'
+                    : isDrafted
+                      ? 'ring-1 ring-amber-500/60'
+                      : 'opacity-90 hover:opacity-100'
+              }`}
             >
-              {isDrafted && (
-                <div className="absolute -top-1.5 -right-1.5 bg-dungeon-gold text-black rounded-full p-0.5">
-                  <CheckCircle2 className="w-3.5 h-3.5 stroke-[3]" />
+              {isConsumed && (
+                <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-black rounded-full p-0.5">
+                  <CheckCircle2 className="w-3 h-3 stroke-[3]" />
                 </div>
               )}
 
               {getSymbolIcon(die.symbol)}
 
-              <span className="text-[10px] font-mono mt-1 capitalize text-stone-300">
-                {die.symbol}
+              <span className="text-[10px] font-mono mt-1 capitalize">
+                {ptSymbol[die.symbol]}
               </span>
             </button>
           );

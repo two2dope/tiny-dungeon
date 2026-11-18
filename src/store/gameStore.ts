@@ -1,11 +1,15 @@
 import { create } from 'zustand';
 import {
   DicePool,
+  DieColor,
+  DieSymbol,
   DungeonCoord,
   DungeonMap,
   FinalScoreBreakdown,
   HeroClass,
   HeroParty,
+  MissionCard,
+  ThemeId,
 } from '../engine/types';
 import { rollDicePool, checkHazardPhase, draftDie, undraftDie } from '../engine/dice';
 import {
@@ -13,140 +17,356 @@ import {
   levelUpHero,
   applyPartyDamage,
   brewPotion,
+  usePotion,
   craftItem,
   collectGem,
+  HERO_CLOAK_AFFINITY,
+  HERO_DIE_SYMBOL,
 } from '../engine/heroes';
-import { getCanonicalMap1, executeMove } from '../engine/dungeon';
+import {
+  getCanonicalMap,
+  executeMove,
+  rehydrateWalls,
+  formatCoordLabel,
+} from '../engine/dungeon';
 import { resolveMinionEncounter, resolveVillainBattle } from '../engine/combat';
-import { calculateFinalGloryScore } from '../engine/scoring';
+import {
+  calculateFinalGloryScore,
+  calculateMissionsGlory,
+  createInitialMissions,
+  evaluateMissions,
+} from '../engine/scoring';
+import { createSeededRng, deriveRoundSeed, parseSeedFromUrl } from '../engine/rng';
+
+export interface EventFeedback {
+  id: number;
+  text: string;
+  tone: 'damage' | 'glory' | 'heal' | 'info';
+}
 
 export interface GameSnapshot {
   party: HeroParty;
   dungeon: DungeonMap;
   dicePool: DicePool;
+  consumedDieIds: string[];
   logs: string[];
   minionsDefeatedCount: number;
   minionsGlory: number;
   bossGlory: number;
   bossesDefeated: string[];
+  masteryGlory: number;
+  artisanCount: number;
+  missions: MissionCard[];
 }
 
 export interface GameState {
+  seed: number;
+  mapId: number;
+  theme: ThemeId;
   currentRound: number;
   isGameOver: boolean;
   party: HeroParty;
   dungeon: DungeonMap;
   dicePool: DicePool;
   selectedDieId: string | null;
+  consumedDieIds: string[];
   logs: string[];
   minionsDefeatedCount: number;
   minionsGlory: number;
   bossGlory: number;
   bossesDefeated: string[];
+  masteryGlory: number;
+  artisanCount: number;
+  missions: MissionCard[];
   finalScore: FinalScoreBreakdown | null;
+  lastEventFeedback: EventFeedback | null;
 
-  // History for intra-round Undo / Redo
   history: GameSnapshot[];
   future: GameSnapshot[];
 
-  // Actions
-  resetGame: () => void;
+  setTheme: (theme: ThemeId) => void;
+  selectMap: (mapId: number, customSeed?: number) => void;
+  resetGame: (customSeed?: number, customMapId?: number) => void;
   selectDie: (dieId: string | null) => void;
   stageDraft: (dieId: string) => void;
   stageMove: (target: DungeonCoord) => void;
   stageLevelUp: (classType: HeroClass) => void;
   stageBrewPotion: () => void;
+  stageUsePotion: () => void;
   stageCraftItem: () => void;
   undo: () => void;
   redo: () => void;
   confirmRound: () => void;
 }
 
-const STORAGE_KEY = 'tiny_dungeon_save_v1';
+const STORAGE_KEY = 'tiny_dungeon_save_v2';
+const THEME_STORAGE_KEY = 'tiny_dungeon_theme_v1';
+
+function isTestEnvironment(): boolean {
+  const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
+  return Boolean(proc?.env?.VITEST);
+}
+
+function getInitialTheme(): ThemeId {
+  if (typeof window === 'undefined') return 'sengoku';
+  const params = new URLSearchParams(window.location.search);
+  const urlTheme = params.get('theme');
+  if (urlTheme === 'sengoku' || urlTheme === 'vesperfall') return urlTheme;
+  try {
+    const stored = window.localStorage?.getItem(THEME_STORAGE_KEY);
+    if (stored === 'sengoku' || stored === 'vesperfall') return stored;
+  } catch {
+    // Ignore storage read errors
+  }
+  return 'sengoku';
+}
 
 function saveToLocalStorage(state: Partial<GameState>) {
-  if (typeof window === 'undefined' || !window.localStorage) return;
+  if (typeof window === 'undefined' || !window.localStorage || isTestEnvironment()) return;
   try {
     const serialized = JSON.stringify({
+      seed: state.seed,
+      mapId: state.mapId,
+      theme: state.theme,
       currentRound: state.currentRound,
       isGameOver: state.isGameOver,
       party: state.party,
       dungeon: state.dungeon,
       dicePool: state.dicePool,
+      consumedDieIds: state.consumedDieIds,
       logs: state.logs,
       minionsDefeatedCount: state.minionsDefeatedCount,
       minionsGlory: state.minionsGlory,
       bossGlory: state.bossGlory,
       bossesDefeated: state.bossesDefeated,
+      masteryGlory: state.masteryGlory,
+      artisanCount: state.artisanCount,
+      missions: state.missions,
       finalScore: state.finalScore,
     });
-    localStorage.setItem(STORAGE_KEY, serialized);
+    window.localStorage.setItem(STORAGE_KEY, serialized);
   } catch (e) {
-    console.error('Failed to autosave game state', e);
+    console.error('Falha ao salvar progresso local', e);
   }
 }
 
+function loadFromLocalStorage(): Partial<GameState> | null {
+  if (typeof window === 'undefined' || !window.localStorage || isTestEnvironment()) return null;
+  const params = new URLSearchParams(window.location.search);
+  if (params.has('demo') || params.has('seed')) return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.dungeon || !parsed.party || !parsed.dicePool) return null;
+    return {
+      ...parsed,
+      dungeon: {
+        ...parsed.dungeon,
+        walls: rehydrateWalls(parsed.dungeon.walls || []),
+      },
+    };
+  } catch {
+    return null;
+  }
+}
+
+function buildFreshRun(seed: number, mapId: number, theme: ThemeId) {
+  const dungeon = getCanonicalMap(mapId);
+  const rawParty = createInitialParty();
+  const dicePool = rollDicePool(createSeededRng(deriveRoundSeed(seed, 1, mapId)));
+  const hazard = checkHazardPhase(dicePool);
+  const party = hazard.hazardTriggered ? applyPartyDamage(rawParty, hazard.wounds) : rawParty;
+  const logs = [
+    `Expedição iniciada em ${dungeon.mapName ?? 'Mapa 1'} (Seed #${seed}). Rodada 1 de 8.`,
+  ];
+  if (hazard.hazardTriggered) {
+    logs.push(`Fase de Perigo: 3+ crânios! A comitiva sofreu ${hazard.wounds} ferimento.`);
+  }
+  return {
+    seed,
+    mapId,
+    theme,
+    currentRound: 1,
+    isGameOver: false,
+    party,
+    dungeon,
+    dicePool,
+    selectedDieId: null,
+    consumedDieIds: [] as string[],
+    logs,
+    minionsDefeatedCount: 0,
+    minionsGlory: 0,
+    bossGlory: 0,
+    bossesDefeated: [] as string[],
+    masteryGlory: 0,
+    artisanCount: 0,
+    missions: createInitialMissions(),
+    finalScore: null,
+    lastEventFeedback: null,
+    history: [] as GameSnapshot[],
+    future: [] as GameSnapshot[],
+  };
+}
+
+let feedbackSeq = 1;
+function makeFeedback(text: string, tone: EventFeedback['tone']): EventFeedback {
+  feedbackSeq += 1;
+  return { id: feedbackSeq, text, tone };
+}
+
+function consumeDieForAction(
+  state: GameState,
+  preferredSymbol?: DieSymbol,
+  preferredColor?: DieColor
+): {
+  ok: boolean;
+  consumedId: string | null;
+  updatedPool: DicePool;
+  matchedColor: boolean;
+  matchedSymbol: boolean;
+} {
+  if (state.consumedDieIds.length >= 3) {
+    return {
+      ok: false,
+      consumedId: null,
+      updatedPool: state.dicePool,
+      matchedColor: false,
+      matchedSymbol: false,
+    };
+  }
+
+  const available = state.dicePool.dice.filter((d) => !state.consumedDieIds.includes(d.id));
+  if (available.length === 0) {
+    return {
+      ok: false,
+      consumedId: null,
+      updatedPool: state.dicePool,
+      matchedColor: false,
+      matchedSymbol: false,
+    };
+  }
+
+  let chosen =
+    state.selectedDieId ? available.find((d) => d.id === state.selectedDieId) : undefined;
+
+  if (!chosen) {
+    const draftedAvailable = available.filter((d) => state.dicePool.draftedIds.includes(d.id));
+    const poolToPick = draftedAvailable.length > 0 ? draftedAvailable : available;
+    chosen =
+      (preferredSymbol && preferredColor
+        ? poolToPick.find((d) => d.symbol === preferredSymbol && d.color === preferredColor)
+        : undefined) ??
+      (preferredSymbol ? poolToPick.find((d) => d.symbol === preferredSymbol) : undefined) ??
+      (preferredColor ? poolToPick.find((d) => d.color === preferredColor && d.symbol !== 'skull') : undefined) ??
+      poolToPick.find((d) => d.symbol !== 'skull') ??
+      poolToPick[0];
+  }
+
+  if (!chosen) {
+    return {
+      ok: false,
+      consumedId: null,
+      updatedPool: state.dicePool,
+      matchedColor: false,
+      matchedSymbol: false,
+    };
+  }
+
+  let nextPool: DicePool = state.dicePool;
+  if (!nextPool.draftedIds.includes(chosen.id)) {
+    if (nextPool.draftedIds.length < 3) {
+      nextPool = draftDie(nextPool, chosen.id);
+    } else {
+      // Replace an unconsumed drafted die so draftedIds stays <= 3
+      const replaceable = nextPool.draftedIds.find((id) => !state.consumedDieIds.includes(id));
+      const trimmed = replaceable
+        ? nextPool.draftedIds.filter((id) => id !== replaceable)
+        : nextPool.draftedIds.slice(0, 2);
+      nextPool = { ...nextPool, draftedIds: [...trimmed, chosen.id] };
+    }
+  }
+
+  const nextUsedIds = [...(nextPool.usedIds ?? []), chosen.id];
+  nextPool = { ...nextPool, usedIds: nextUsedIds };
+
+  return {
+    ok: true,
+    consumedId: chosen.id,
+    updatedPool: nextPool,
+    matchedColor: preferredColor ? chosen.color === preferredColor : false,
+    matchedSymbol: preferredSymbol ? chosen.symbol === preferredSymbol : false,
+  };
+}
+
 export const useGameStore = create<GameState>((set, get) => {
-  const initialDungeon = getCanonicalMap1();
-  const initialParty = createInitialParty();
-  const initialDicePool = rollDicePool();
+  const initialTheme = getInitialTheme();
+  const saved = loadFromLocalStorage();
+  const baseSeed = parseSeedFromUrl();
+  const fresh = buildFreshRun(baseSeed, 1, initialTheme);
+
+  const initialState = saved
+    ? {
+        ...fresh,
+        ...saved,
+        theme: initialTheme,
+        history: [],
+        future: [],
+      }
+    : fresh;
 
   const takeSnapshot = (state: GameState): GameSnapshot => ({
     party: JSON.parse(JSON.stringify(state.party)),
-    dungeon: JSON.parse(JSON.stringify(state.dungeon)),
+    dungeon: {
+      ...JSON.parse(JSON.stringify(state.dungeon)),
+      walls: rehydrateWalls(state.dungeon.walls),
+    },
     dicePool: JSON.parse(JSON.stringify(state.dicePool)),
+    consumedDieIds: [...state.consumedDieIds],
     logs: [...state.logs],
     minionsDefeatedCount: state.minionsDefeatedCount,
     minionsGlory: state.minionsGlory,
     bossGlory: state.bossGlory,
     bossesDefeated: [...state.bossesDefeated],
+    masteryGlory: state.masteryGlory,
+    artisanCount: state.artisanCount,
+    missions: JSON.parse(JSON.stringify(state.missions)),
   });
 
   return {
-    currentRound: 1,
-    isGameOver: false,
-    party: initialParty,
-    dungeon: initialDungeon,
-    dicePool: initialDicePool,
-    selectedDieId: null,
-    logs: ['Welcome to Tiny Dungeon. The torch embers cast long shadows.'],
-    minionsDefeatedCount: 0,
-    minionsGlory: 0,
-    bossGlory: 0,
-    bossesDefeated: [],
-    finalScore: null,
-    history: [],
-    future: [],
+    ...initialState,
 
-    resetGame: () => {
-      const dungeon = getCanonicalMap1();
-      const party = createInitialParty();
-      const dicePool = rollDicePool();
-      const hazard = checkHazardPhase(dicePool);
-
-      let adjustedParty = party;
-      const initialLogs = ['The adventure begins anew. Round 1.'];
-      if (hazard.hazardTriggered) {
-        adjustedParty = applyPartyDamage(party, hazard.wounds);
-        initialLogs.push(`Hazard Phase: Skulls struck! Party takes ${hazard.wounds} wound.`);
+    setTheme: (theme: ThemeId) => {
+      if (typeof window !== 'undefined' && !isTestEnvironment()) {
+        try {
+          window.localStorage?.setItem(THEME_STORAGE_KEY, theme);
+        } catch {
+          // Ignore storage error
+        }
       }
-
       set({
-        currentRound: 1,
-        isGameOver: false,
-        party: adjustedParty,
-        dungeon,
-        dicePool,
-        selectedDieId: null,
-        logs: initialLogs,
-        minionsDefeatedCount: 0,
-        minionsGlory: 0,
-        bossGlory: 0,
-        bossesDefeated: [],
-        finalScore: null,
-        history: [],
-        future: [],
+        theme,
+        lastEventFeedback: makeFeedback(
+          theme === 'sengoku' ? 'Tema: Sengoku & Nanquim' : 'Tema: Vesperfall Obsidian',
+          'info'
+        ),
       });
+      saveToLocalStorage(get());
+    },
+
+    selectMap: (mapId: number, customSeed?: number) => {
+      const nextSeed = customSeed ?? parseSeedFromUrl();
+      const freshRun = buildFreshRun(nextSeed, mapId, get().theme);
+      set(freshRun);
+      saveToLocalStorage(get());
+    },
+
+    resetGame: (customSeed?: number, customMapId?: number) => {
+      const state = get();
+      const nextSeed = customSeed ?? parseSeedFromUrl();
+      const nextMapId = customMapId ?? state.mapId ?? 1;
+      const freshRun = buildFreshRun(nextSeed, nextMapId, state.theme);
+      set(freshRun);
       saveToLocalStorage(get());
     },
 
@@ -156,8 +376,12 @@ export const useGameStore = create<GameState>((set, get) => {
 
     stageDraft: (dieId: string) => {
       const state = get();
+      if (state.isGameOver) return;
+      if (state.consumedDieIds.includes(dieId)) {
+        return;
+      }
+
       if (state.dicePool.draftedIds.includes(dieId)) {
-        // Toggle off draft
         const snapshot = takeSnapshot(state);
         const updatedPool = undraftDie(state.dicePool, dieId);
         set({
@@ -185,13 +409,29 @@ export const useGameStore = create<GameState>((set, get) => {
 
     stageMove: (target: DungeonCoord) => {
       const state = get();
+      if (state.isGameOver) return;
+
+      const consumption = consumeDieForAction(state, 'boot');
+      if (!consumption.ok || !consumption.consumedId) {
+        set({
+          logs: [...state.logs, 'Limite de 3 ações por rodada atingido. Confirme a rodada.'],
+          lastEventFeedback: makeFeedback('Sem ações restantes na rodada', 'info'),
+        });
+        return;
+      }
+
       const snapshot = takeSnapshot(state);
       const { updatedMap, events } = executeMove(state.dungeon, target);
 
       let currentParty = state.party;
       let minionsDefeatedCount = state.minionsDefeatedCount;
       let minionsGlory = state.minionsGlory;
+      let artisanCount = state.artisanCount;
       const newLogs = [...state.logs];
+      let feedback: EventFeedback = makeFeedback(
+        `Moveu para ${formatCoordLabel(target)}`,
+        'info'
+      );
 
       events.forEach((ev) => {
         newLogs.push(ev.description);
@@ -201,17 +441,35 @@ export const useGameStore = create<GameState>((set, get) => {
           minionsGlory += outcome.gloryEarned;
           if (outcome.woundsTaken > 0) {
             currentParty = applyPartyDamage(currentParty, outcome.woundsTaken);
-            newLogs.push(`Suffered ${outcome.woundsTaken} wound(s) fighting ${ev.payload.name}.`);
+            newLogs.push(
+              `Sofreu ${outcome.woundsTaken} ferimento(s) enfrentando ${ev.payload.name}.`
+            );
+            feedback = makeFeedback(
+              `-${outcome.woundsTaken} Vida • +${outcome.gloryEarned} Glória`,
+              'damage'
+            );
           } else {
-            newLogs.push(`Hero level overpowered ${ev.payload.name} with 0 wounds!`);
+            newLogs.push(`Comitiva superou ${ev.payload.name} sem ferimentos (+${outcome.gloryEarned} glória)!`);
+            feedback = makeFeedback(`+${outcome.gloryEarned} Glória!`, 'glory');
           }
         } else if (ev.type === 'trap' && typeof ev.payload === 'number') {
           currentParty = applyPartyDamage(currentParty, ev.payload);
+          feedback = makeFeedback(`Armadilha! -${ev.payload} Vida`, 'damage');
         } else if (ev.type === 'gem' && typeof ev.payload === 'number') {
           currentParty = collectGem(currentParty, ev.payload);
+          feedback = makeFeedback(`+${ev.payload} Gema(s) (+${ev.payload * 2} Glória)`, 'glory');
         } else if (ev.type === 'item') {
           currentParty = craftItem(currentParty);
+          artisanCount += 1;
+          feedback = makeFeedback('+1 Artefato (+2 Glória)', 'glory');
         }
+      });
+
+      const nextMissions = evaluateMissions({
+        missions: state.missions,
+        minionsDefeatedCount,
+        potionsAndItemsCount: artisanCount,
+        visitedCount: updatedMap.visitedCoords.length,
       });
 
       set({
@@ -219,57 +477,158 @@ export const useGameStore = create<GameState>((set, get) => {
         future: [],
         dungeon: updatedMap,
         party: currentParty,
+        dicePool: consumption.updatedPool,
+        consumedDieIds: [...state.consumedDieIds, consumption.consumedId],
+        selectedDieId: null,
         minionsDefeatedCount,
         minionsGlory,
+        artisanCount,
+        missions: nextMissions,
         logs: newLogs,
+        lastEventFeedback: feedback,
       });
     },
 
     stageLevelUp: (classType: HeroClass) => {
       const state = get();
+      if (state.isGameOver) return;
       const hero = state.party.heroes[classType];
       if (hero.level >= hero.maxLevel) return;
 
+      const preferredSymbol = HERO_DIE_SYMBOL[classType];
+      const preferredColor = HERO_CLOAK_AFFINITY[classType];
+      const consumption = consumeDieForAction(state, preferredSymbol, preferredColor);
+      if (!consumption.ok || !consumption.consumedId) {
+        set({
+          logs: [...state.logs, 'Limite de 3 ações por rodada atingido. Confirme a rodada.'],
+          lastEventFeedback: makeFeedback('Sem ações restantes na rodada', 'info'),
+        });
+        return;
+      }
+
       const snapshot = takeSnapshot(state);
       const updatedParty = levelUpHero(state.party, classType);
+      const bonusMastery = consumption.matchedSymbol || consumption.matchedColor ? 1 : 0;
+      const heroLabels: Record<HeroClass, string> = {
+        warrior: 'Guerreiro',
+        mage: 'Mago',
+        cleric: 'Clérigo',
+        rogue: 'Ladino',
+      };
       const newLogs = [
         ...state.logs,
-        `${classType.toUpperCase()} advanced to Level ${updatedParty.heroes[classType].level}!`,
+        `${heroLabels[classType]} subiu para o Nível ${updatedParty.heroes[classType].level}!${
+          bonusMastery > 0 ? ' (+1 Maestria por afinidade de dado)' : ''
+        }`,
       ];
 
       set({
         history: [...state.history, snapshot],
         future: [],
         party: updatedParty,
+        dicePool: consumption.updatedPool,
+        consumedDieIds: [...state.consumedDieIds, consumption.consumedId],
+        selectedDieId: null,
+        masteryGlory: state.masteryGlory + bonusMastery,
         logs: newLogs,
+        lastEventFeedback: makeFeedback(
+          `${heroLabels[classType]} Nv.${updatedParty.heroes[classType].level}${
+            bonusMastery ? ' (+1 Maestria)' : ''
+          }`,
+          'glory'
+        ),
       });
     },
 
     stageBrewPotion: () => {
       const state = get();
+      if (state.isGameOver) return;
+
+      const consumption = consumeDieForAction(state, 'shield');
+      if (!consumption.ok || !consumption.consumedId) {
+        set({
+          logs: [...state.logs, 'Limite de 3 ações por rodada atingido. Confirme a rodada.'],
+          lastEventFeedback: makeFeedback('Sem ações restantes na rodada', 'info'),
+        });
+        return;
+      }
+
       const snapshot = takeSnapshot(state);
       const updatedParty = brewPotion(state.party);
-      const newLogs = [...state.logs, 'Brewed an invigorating healing potion.'];
+      const artisanCount = state.artisanCount + 1;
+      const nextMissions = evaluateMissions({
+        missions: state.missions,
+        minionsDefeatedCount: state.minionsDefeatedCount,
+        potionsAndItemsCount: artisanCount,
+        visitedCount: state.dungeon.visitedCoords.length,
+      });
 
       set({
         history: [...state.history, snapshot],
         future: [],
         party: updatedParty,
-        logs: newLogs,
+        dicePool: consumption.updatedPool,
+        consumedDieIds: [...state.consumedDieIds, consumption.consumedId],
+        selectedDieId: null,
+        artisanCount,
+        missions: nextMissions,
+        logs: [...state.logs, 'Poção de cura destilada (+1 poção no estoque).'],
+        lastEventFeedback: makeFeedback('+1 Poção Destilada', 'heal'),
+      });
+    },
+
+    stageUsePotion: () => {
+      const state = get();
+      if (state.isGameOver) return;
+      if (state.party.potions <= 0 || state.party.currentHealth >= state.party.maxHealth) return;
+
+      const snapshot = takeSnapshot(state);
+      const updatedParty = usePotion(state.party);
+      const healed = updatedParty.currentHealth - state.party.currentHealth;
+
+      set({
+        history: [...state.history, snapshot],
+        future: [],
+        party: updatedParty,
+        logs: [...state.logs, `Poção consumida! Comitiva recuperou +${healed} de vida.`],
+        lastEventFeedback: makeFeedback(`+${healed} Vida Restaurada`, 'heal'),
       });
     },
 
     stageCraftItem: () => {
       const state = get();
+      if (state.isGameOver) return;
+
+      const consumption = consumeDieForAction(state, 'magic');
+      if (!consumption.ok || !consumption.consumedId) {
+        set({
+          logs: [...state.logs, 'Limite de 3 ações por rodada atingido. Confirme a rodada.'],
+          lastEventFeedback: makeFeedback('Sem ações restantes na rodada', 'info'),
+        });
+        return;
+      }
+
       const snapshot = takeSnapshot(state);
       const updatedParty = craftItem(state.party);
-      const newLogs = [...state.logs, 'Forged a magical artifact (+2 glory).'];
+      const artisanCount = state.artisanCount + 1;
+      const nextMissions = evaluateMissions({
+        missions: state.missions,
+        minionsDefeatedCount: state.minionsDefeatedCount,
+        potionsAndItemsCount: artisanCount,
+        visitedCount: state.dungeon.visitedCoords.length,
+      });
 
       set({
         history: [...state.history, snapshot],
         future: [],
         party: updatedParty,
-        logs: newLogs,
+        dicePool: consumption.updatedPool,
+        consumedDieIds: [...state.consumedDieIds, consumption.consumedId],
+        selectedDieId: null,
+        artisanCount,
+        missions: nextMissions,
+        logs: [...state.logs, 'Artefato mágico forjado (+2 glória ao final).'],
+        lastEventFeedback: makeFeedback('+1 Artefato (+2 Glória)', 'glory'),
       });
     },
 
@@ -283,15 +642,24 @@ export const useGameStore = create<GameState>((set, get) => {
 
       set({
         party: previous.party,
-        dungeon: previous.dungeon,
+        dungeon: {
+          ...previous.dungeon,
+          walls: rehydrateWalls(previous.dungeon.walls),
+        },
         dicePool: previous.dicePool,
+        consumedDieIds: previous.consumedDieIds,
         logs: previous.logs,
         minionsDefeatedCount: previous.minionsDefeatedCount,
         minionsGlory: previous.minionsGlory,
         bossGlory: previous.bossGlory,
         bossesDefeated: previous.bossesDefeated,
+        masteryGlory: previous.masteryGlory,
+        artisanCount: previous.artisanCount,
+        missions: previous.missions,
+        selectedDieId: null,
         history: newHistory,
         future: [currentSnapshot, ...state.future],
+        lastEventFeedback: makeFeedback('Ação desfeita', 'info'),
       });
     },
 
@@ -305,28 +673,38 @@ export const useGameStore = create<GameState>((set, get) => {
 
       set({
         party: next.party,
-        dungeon: next.dungeon,
+        dungeon: {
+          ...next.dungeon,
+          walls: rehydrateWalls(next.dungeon.walls),
+        },
         dicePool: next.dicePool,
+        consumedDieIds: next.consumedDieIds,
         logs: next.logs,
         minionsDefeatedCount: next.minionsDefeatedCount,
         minionsGlory: next.minionsGlory,
         bossGlory: next.bossGlory,
         bossesDefeated: next.bossesDefeated,
+        masteryGlory: next.masteryGlory,
+        artisanCount: next.artisanCount,
+        missions: next.missions,
+        selectedDieId: null,
         history: [...state.history, currentSnapshot],
         future: newFuture,
+        lastEventFeedback: makeFeedback('Ação refeita', 'info'),
       });
     },
 
     confirmRound: () => {
       const state = get();
+      if (state.isGameOver) return;
+
       let currentParty = state.party;
       let bossGlory = state.bossGlory;
       const bossesDefeated = [...state.bossesDefeated];
-      const newLogs = [...state.logs, `Confirmed actions for Round ${state.currentRound}.`];
+      const newLogs = [...state.logs, `Rodada ${state.currentRound} encerrada.`];
+      let feedback: EventFeedback = makeFeedback(`Rodada ${state.currentRound} confirmada`, 'info');
 
-      // Boss encounters at rounds 3, 6, and 8
       if (state.currentRound === 3 || state.currentRound === 6 || state.currentRound === 8) {
-        // Find boss associated with round
         const bossRoom = Object.values(state.dungeon.rooms).find(
           (r) => r.type === 'boss' && r.villain && r.villain.round === state.currentRound
         );
@@ -335,28 +713,38 @@ export const useGameStore = create<GameState>((set, get) => {
           const villain = bossRoom.villain;
           const outcome = resolveVillainBattle(currentParty, villain);
           newLogs.push(
-            `⚔️ Confronted Boss ${villain.name}! (Party Power: ${outcome.partyPower})`
+            `Confronto contra o Chefe ${villain.name}! (Poder do Grupo: ${outcome.partyPower})`
           );
 
           if (outcome.tier === 1) {
-            newLogs.push(`Heroic Victory (Tier 1)! +${outcome.gloryEarned} glory points!`);
+            newLogs.push(`Vitória Heroica (Nível 1)! +${outcome.gloryEarned} pontos de glória!`);
             bossGlory += outcome.gloryEarned;
             bossesDefeated.push(villain.name);
+            feedback = makeFeedback(`${villain.name} derrotado! +${outcome.gloryEarned} Glória`, 'glory');
           } else if (outcome.tier === 2) {
-            newLogs.push(`Standard Victory (Tier 2)! +${outcome.gloryEarned} glory points!`);
+            newLogs.push(`Vitória Padrão (Nível 2)! +${outcome.gloryEarned} pontos de glória!`);
             bossGlory += outcome.gloryEarned;
             bossesDefeated.push(villain.name);
+            feedback = makeFeedback(`${villain.name} vencido! +${outcome.gloryEarned} Glória`, 'glory');
           } else {
             newLogs.push(
-              `Defeat against ${villain.name}! Took ${outcome.woundsTaken} penalty damage!`
+              `Derrota contra ${villain.name}! A comitiva sofreu ${outcome.woundsTaken} de dano!`
             );
             currentParty = applyPartyDamage(currentParty, outcome.woundsTaken);
+            feedback = makeFeedback(`Derrota no Chefe! -${outcome.woundsTaken} Vida`, 'damage');
           }
         }
       }
 
+      const missions = evaluateMissions({
+        missions: state.missions,
+        minionsDefeatedCount: state.minionsDefeatedCount,
+        potionsAndItemsCount: state.artisanCount,
+        visitedCount: state.dungeon.visitedCoords.length,
+      });
+
       if (state.currentRound >= 8) {
-        // Final Round complete!
+        const missionsGlory = calculateMissionsGlory(missions);
         const finalScore = calculateFinalGloryScore({
           party: currentParty,
           minionsDefeatedCount: state.minionsDefeatedCount,
@@ -364,33 +752,39 @@ export const useGameStore = create<GameState>((set, get) => {
           bossGlory,
           gemsCount: currentParty.gems,
           itemsCrafted: currentParty.magicItems,
+          missionsGlory,
+          masteryGlory: state.masteryGlory,
         });
 
-        newLogs.push(`The expedition reaches its climax! Final Glory: ${finalScore.netGlory}`);
+        newLogs.push(`Expedição concluída! Glória Final: ${finalScore.netGlory} pontos.`);
 
         set({
           isGameOver: true,
           party: currentParty,
           bossGlory,
           bossesDefeated,
+          missions,
           finalScore,
           logs: newLogs,
           history: [],
           future: [],
+          lastEventFeedback: makeFeedback(`Expedição concluída: ${finalScore.netGlory} Glória!`, 'glory'),
         });
         saveToLocalStorage(get());
         return;
       }
 
-      // Roll new dice pool for next round
       const nextRound = state.currentRound + 1;
-      const nextDicePool = rollDicePool();
+      const nextDicePool = rollDicePool(
+        createSeededRng(deriveRoundSeed(state.seed, nextRound, state.mapId))
+      );
       const hazard = checkHazardPhase(nextDicePool);
 
-      newLogs.push(`Entering Round ${nextRound}. New dice rolled.`);
+      newLogs.push(`Iniciando Rodada ${nextRound}. Novos dados rolados.`);
       if (hazard.hazardTriggered) {
         currentParty = applyPartyDamage(currentParty, hazard.wounds);
-        newLogs.push(`Hazard Phase: Skulls struck! Party takes ${hazard.wounds} wound.`);
+        newLogs.push(`Fase de Perigo: 3+ crânios! A comitiva sofreu ${hazard.wounds} ferimento.`);
+        feedback = makeFeedback(`Fase de Perigo! -${hazard.wounds} Vida`, 'damage');
       }
 
       set({
@@ -398,11 +792,14 @@ export const useGameStore = create<GameState>((set, get) => {
         party: currentParty,
         bossGlory,
         bossesDefeated,
+        missions,
         dicePool: nextDicePool,
         selectedDieId: null,
+        consumedDieIds: [],
         logs: newLogs,
         history: [],
         future: [],
+        lastEventFeedback: feedback,
       });
 
       saveToLocalStorage(get());

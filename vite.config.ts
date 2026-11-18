@@ -10,9 +10,20 @@ export default defineConfig({
     },
   },
   resolve: {
+    dedupe: ['three'],
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@engine': path.resolve(__dirname, './src/engine'),
+    },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-three': ['three'],
+          'vendor-r3f': ['@react-three/fiber', '@react-three/drei'],
+        },
+      },
     },
   },
   test: {

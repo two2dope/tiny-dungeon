@@ -1,30 +1,33 @@
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { ThemeId } from '../../engine/types';
 
 interface TorchLightProps {
   position: [number, number, number];
   intensity?: number;
   color?: string;
+  theme?: ThemeId;
+  isPaused?: boolean;
 }
 
 export const TorchLight: React.FC<TorchLightProps> = ({
   position,
-  intensity = 2.5,
+  intensity = 4.2,
   color = '#ff8833',
+  theme = 'sengoku',
+  isPaused = false,
 }) => {
   const lightRef = useRef<THREE.PointLight>(null);
 
   useFrame(({ clock }) => {
-    if (lightRef.current) {
-      const t = clock.getElapsedTime();
-      // Natural organic flicker
-      const flicker =
-        Math.sin(t * 8) * 0.15 +
-        Math.sin(t * 19) * 0.1 +
-        Math.cos(t * 31) * 0.05;
-      lightRef.current.intensity = Math.max(0.5, intensity + flicker);
-    }
+    if (isPaused || !lightRef.current) return;
+    const t = clock.getElapsedTime();
+    const flicker =
+      Math.sin(t * 7.5 + position[0]) * 0.18 +
+      Math.sin(t * 17.3 + position[2]) * 0.1 +
+      Math.cos(t * 29.1) * 0.05;
+    lightRef.current.intensity = Math.max(2.0, intensity + flicker);
   });
 
   return (
@@ -32,16 +35,41 @@ export const TorchLight: React.FC<TorchLightProps> = ({
       <pointLight
         ref={lightRef}
         color={color}
-        distance={9}
-        decay={2}
+        distance={16}
+        decay={1.1}
         castShadow
         shadow-bias={-0.002}
       />
-      {/* Tiny glowing flame core */}
-      <mesh position={[0, 0, 0]}>
-        <sphereGeometry args={[0.08, 8, 8]} />
-        <meshBasicMaterial color="#ffc466" />
-      </mesh>
+      <group visible={theme === 'sengoku'}>
+        {/* Paper lantern (Chochin) cap & base */}
+        <mesh position={[0, 0.14, 0]}>
+          <cylinderGeometry args={[0.11, 0.12, 0.04, 8]} />
+          <meshStandardMaterial color="#1f1714" roughness={0.8} />
+        </mesh>
+        <mesh position={[0, 0, 0]}>
+          <cylinderGeometry args={[0.1, 0.1, 0.24, 10]} />
+          <meshStandardMaterial
+            color="#ffb454"
+            emissive="#ff7b1c"
+            emissiveIntensity={1.2}
+            roughness={0.4}
+          />
+        </mesh>
+        <mesh position={[0, -0.14, 0]}>
+          <cylinderGeometry args={[0.11, 0.09, 0.04, 8]} />
+          <meshStandardMaterial color="#1f1714" roughness={0.8} />
+        </mesh>
+      </group>
+      <group visible={theme !== 'sengoku'}>
+        <mesh position={[0, -0.18, 0]}>
+          <cylinderGeometry args={[0.04, 0.06, 0.32, 6]} />
+          <meshStandardMaterial color="#2a2d38" metalness={0.6} roughness={0.4} />
+        </mesh>
+        <mesh position={[0, 0.02, 0]}>
+          <sphereGeometry args={[0.09, 8, 8]} />
+          <meshBasicMaterial color="#ffc466" />
+        </mesh>
+      </group>
     </group>
   );
 };

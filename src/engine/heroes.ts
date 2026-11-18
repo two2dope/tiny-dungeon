@@ -1,8 +1,22 @@
-import { HeroClass, HeroParty, HeroState } from './types';
+import { DieColor, DieSymbol, HeroClass, HeroParty, HeroState } from './types';
 
 export const MAX_HERO_LEVEL = 6;
 export const DEFAULT_MAX_HEALTH = 6;
 export const RESURRECTION_RECOVERY_HEALTH = 3;
+
+export const HERO_CLOAK_AFFINITY: Record<HeroClass, DieColor> = {
+  warrior: 'white',
+  cleric: 'white',
+  mage: 'black',
+  rogue: 'black',
+};
+
+export const HERO_DIE_SYMBOL: Record<HeroClass, DieSymbol> = {
+  warrior: 'sword',
+  mage: 'magic',
+  cleric: 'shield',
+  rogue: 'rogue',
+};
 
 export function createInitialParty(): HeroParty {
   const createHero = (classType: HeroClass): HeroState => ({

@@ -1,0 +1,40 @@
+declare module 'lucide-react' {
+  import * as React from 'react';
+  export type LucideProps = React.SVGProps<SVGSVGElement> & {
+    size?: string | number;
+    color?: string;
+    strokeWidth?: string | number;
+    absoluteStrokeWidth?: boolean;
+  };
+  export type LucideIcon = React.FC<LucideProps>;
+  export const Award: LucideIcon;
+  export const BookOpen: LucideIcon;
+  export const Check: LucideIcon;
+  export const CheckCircle2: LucideIcon;
+  export const Compass: LucideIcon;
+  export const Download: LucideIcon;
+  export const Eye: LucideIcon;
+  export const Flame: LucideIcon;
+  export const FlaskConical: LucideIcon;
+  export const Footprints: LucideIcon;
+  export const Gem: LucideIcon;
+  export const Heart: LucideIcon;
+  export const KeyRound: LucideIcon;
+  export const Map: LucideIcon;
+  export const Palette: LucideIcon;
+  export const Plus: LucideIcon;
+  export const RotateCcw: LucideIcon;
+  export const RotateCw: LucideIcon;
+  export const Scroll: LucideIcon;
+  export const Shield: LucideIcon;
+  export const ShieldAlert: LucideIcon;
+  export const Skull: LucideIcon;
+  export const Sparkles: LucideIcon;
+  export const Sword: LucideIcon;
+  export const Terminal: LucideIcon;
+  export const Trophy: LucideIcon;
+  export const Volume2: LucideIcon;
+  export const VolumeX: LucideIcon;
+  export const Wand2: LucideIcon;
+  export const X: LucideIcon;
+}

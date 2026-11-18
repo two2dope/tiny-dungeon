@@ -1,5 +1,6 @@
 export type DieSymbol = 'boot' | 'sword' | 'magic' | 'rogue' | 'shield' | 'skull';
 export type DieColor = 'white' | 'black';
+export type ThemeId = 'sengoku' | 'vesperfall';
 
 export interface Die {
   id: string;
@@ -11,6 +12,7 @@ export interface Die {
 export interface DicePool {
   dice: Die[];
   draftedIds: string[];
+  usedIds?: string[];
 }
 
 export interface HazardResult {
@@ -81,11 +83,21 @@ export interface Wall {
 }
 
 export interface DungeonMap {
+  mapId?: number;
+  mapName?: string;
   startCoord: DungeonCoord;
   currentCoord: DungeonCoord;
   rooms: Record<string, RoomState>;
   walls: Wall[];
   visitedCoords: DungeonCoord[];
+}
+
+export interface MissionCard {
+  id: string;
+  title: string;
+  description: string;
+  rewardGlory: number;
+  completed: boolean;
 }
 
 export interface FinalScoreBreakdown {
@@ -94,6 +106,8 @@ export interface FinalScoreBreakdown {
   gemsGlory: number;
   itemsGlory: number;
   heroLevelsGlory: number;
+  missionsGlory?: number;
+  masteryGlory?: number;
   resurrectionPenalties: number;
   netGlory: number;
 }

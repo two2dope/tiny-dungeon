@@ -6,11 +6,47 @@
   color-scheme: dark;
 }
 
+html,
 body {
   margin: 0;
   padding: 0;
-  background-color: #0d0e12;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background-color: #182030;
   font-family: 'Inter', system-ui, sans-serif;
-  overflow: hidden;
   user-select: none;
+}
+
+:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse) {
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@keyframes screen-shake {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  20% { transform: translate3d(-4px, 2px, 0); }
+  40% { transform: translate3d(4px, -2px, 0); }
+  60% { transform: translate3d(-3px, -1px, 0); }
+  80% { transform: translate3d(3px, 1px, 0); }
+}
+
+.animate-shake {
+  animation: screen-shake 0.28s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-shake {
+    animation: none;
+  }
 }

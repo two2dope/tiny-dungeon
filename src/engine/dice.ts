@@ -1,13 +1,15 @@
-import { Die, DieColor, DieSymbol, DicePool, HazardResult } from './types';
+import { Die, DieSymbol, DicePool, HazardResult } from './types';
+import { createSeededRng, getNextFallbackSeed } from './rng';
 
 const DIE_FACES: DieSymbol[] = ['boot', 'sword', 'magic', 'rogue', 'shield', 'skull'];
 
-export function rollDicePool(rng: () => number = Math.random): DicePool {
+export function rollDicePool(rng?: () => number): DicePool {
+  const generator = rng ?? createSeededRng(getNextFallbackSeed());
   const dice: Die[] = [];
 
   // 3 White Dice
   for (let i = 0; i < 3; i++) {
-    const faceIndex = Math.floor(rng() * DIE_FACES.length);
+    const faceIndex = Math.floor(generator() * DIE_FACES.length);
     const symbol = DIE_FACES[faceIndex];
     dice.push({
       id: `white-${i + 1}`,
@@ -19,7 +21,7 @@ export function rollDicePool(rng: () => number = Math.random): DicePool {
 
   // 3 Black Dice
   for (let i = 0; i < 3; i++) {
-    const faceIndex = Math.floor(rng() * DIE_FACES.length);
+    const faceIndex = Math.floor(generator() * DIE_FACES.length);
     const symbol = DIE_FACES[faceIndex];
     dice.push({
       id: `black-${i + 1}`,
@@ -32,11 +34,12 @@ export function rollDicePool(rng: () => number = Math.random): DicePool {
   return {
     dice,
     draftedIds: [],
+    usedIds: [],
   };
 }
 
 export function checkHazardPhase(pool: DicePool): HazardResult {
-  const skullCount = pool.dice.filter(d => d.symbol === 'skull').length;
+  const skullCount = pool.dice.filter((d) => d.symbol === 'skull').length;
   if (skullCount >= 3) {
     return {
       hazardTriggered: true,
@@ -50,7 +53,7 @@ export function checkHazardPhase(pool: DicePool): HazardResult {
 }
 
 export function draftDie(pool: DicePool, dieId: string): DicePool {
-  const die = pool.dice.find(d => d.id === dieId);
+  const die = pool.dice.find((d) => d.id === dieId);
   if (!die) {
     throw new Error(`Die with id ${dieId} not found in pool`);
   }
@@ -68,8 +71,11 @@ export function draftDie(pool: DicePool, dieId: string): DicePool {
 }
 
 export function undraftDie(pool: DicePool, dieId: string): DicePool {
+  if (pool.usedIds?.includes(dieId)) {
+    return pool;
+  }
   return {
     ...pool,
-    draftedIds: pool.draftedIds.filter(id => id !== dieId),
+    draftedIds: pool.draftedIds.filter((id) => id !== dieId),
   };
 }

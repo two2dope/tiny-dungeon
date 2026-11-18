@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { rollDicePool, checkHazardPhase, draftDie } from '../../src/engine/dice';
+import { createSeededRng } from '../../src/engine/rng';
 
 describe('Dice System', () => {
-  it('should generate 3 white and 3 black dice', () => {
-    const pool = rollDicePool(() => 0.5);
-    expect(pool.dice).toHaveLength(6);
-    expect(pool.dice.filter(d => d.color === 'white')).toHaveLength(3);
-    expect(pool.dice.filter(d => d.color === 'black')).toHaveLength(3);
+  it('should generate 3 white and 3 black dice deterministically from a seed', () => {
+    const poolA = rollDicePool(createSeededRng(4242));
+    const poolB = rollDicePool(createSeededRng(4242));
+    expect(poolA.dice).toHaveLength(6);
+    expect(poolA.dice.filter((d) => d.color === 'white')).toHaveLength(3);
+    expect(poolA.dice.filter((d) => d.color === 'black')).toHaveLength(3);
+    expect(poolA.dice).toEqual(poolB.dice);
   });
 
   it('should trigger hazard wound when 3 or more skulls appear', () => {
@@ -19,13 +22,13 @@ describe('Dice System', () => {
         { id: '5', color: 'white' as const, symbol: 'sword' as const, value: 1 },
         { id: '6', color: 'white' as const, symbol: 'magic' as const, value: 1 },
       ],
-      draftedIds: []
+      draftedIds: [],
     };
     expect(checkHazardPhase(pool)).toEqual({ hazardTriggered: true, wounds: 1 });
   });
 
   it('should allow drafting up to 3 dice', () => {
-    let pool = rollDicePool();
+    let pool = rollDicePool(createSeededRng(77));
     pool = draftDie(pool, pool.dice[0].id);
     pool = draftDie(pool, pool.dice[1].id);
     pool = draftDie(pool, pool.dice[2].id);
