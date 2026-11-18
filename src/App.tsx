@@ -150,7 +150,11 @@ export default function App() {
         </div>
       )}
 
-      <footer className="w-full flex flex-col sm:flex-row items-center sm:items-end justify-between gap-2 px-3 sm:px-6 pb-3 sm:pb-5 z-20 pointer-events-none">
+      <footer
+        className={`w-full flex flex-col sm:flex-row items-center sm:items-end justify-between gap-2 px-3 sm:px-6 ${
+          isLedgerOpen ? 'lg:pl-[23rem]' : ''
+        } pb-3 sm:pb-5 z-20 pointer-events-none transition-[padding] duration-200`}
+      >
         <div className="hidden lg:block pointer-events-auto bg-stone-950/80 backdrop-blur-sm border border-stone-700/70 px-3 py-2 rounded-lg text-[11px] font-mono text-stone-400">
           Clique nas lajes iluminadas para mover • Selecione até 3 dados
         </div>

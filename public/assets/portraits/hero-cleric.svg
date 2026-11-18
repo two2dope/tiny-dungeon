@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <radialGradient id="c-bg" cx="50%" cy="42%" r="60%">
+      <stop offset="0%" stop-color="#fef9c3"/>
+      <stop offset="60%" stop-color="#bae6fd"/>
+      <stop offset="100%" stop-color="#0c4a6e"/>
+    </radialGradient>
+    <linearGradient id="c-cloak" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#cbd5e1"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" fill="url(#c-bg)"/>
+  <!-- Sun / Halo Seal -->
+  <circle cx="128" cy="108" r="78" fill="none" stroke="#f59e0b" stroke-width="5" opacity="0.65"/>
+  <circle cx="128" cy="108" r="66" fill="none" stroke="#0284c7" stroke-width="2" stroke-dasharray="10 6" opacity="0.7"/>
+  <!-- White Sohei Cloak & Stole -->
+  <path d="M44 248 C54 176, 84 156, 128 156 C172 156, 202 176, 212 248 Z" fill="url(#c-cloak)" stroke="#1e293b" stroke-width="5"/>
+  <path d="M96 158 L114 248 M160 158 L142 248" stroke="#0284c7" stroke-width="10" opacity="0.85"/>
+  <path d="M128 176 V226 M108 198 H148" stroke="#d97706" stroke-width="8" stroke-linecap="round"/>
+  <!-- Hood & Calm Face -->
+  <path d="M78 134 C76 74, 98 48, 128 48 C158 48, 180 74, 178 134 L164 156 L92 156 Z" fill="#f1f5f9" stroke="#1e293b" stroke-width="4.5"/>
+  <ellipse cx="128" cy="112" rx="30" ry="35" fill="#f5dcc0" stroke="#1e293b" stroke-width="3"/>
+  <!-- Eyes & Gold Headband -->
+  <path d="M99 95 Q128 89 157 95" fill="none" stroke="#d97706" stroke-width="5"/>
+  <circle cx="128" cy="92" r="5" fill="#38bdf8" stroke="#1e293b" stroke-width="1.5"/>
+  <path d="M108 112 Q115 109 120 113 M136 113 Q141 109 148 112" fill="none" stroke="#1e293b" stroke-width="3" stroke-linecap="round"/>
+  <path d="M120 130 Q128 134 136 130" fill="none" stroke="#78350f" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import { HeroClass } from '../../engine/types';
 import { HERO_CLOAK_AFFINITY } from '../../engine/heroes';
@@ -18,6 +18,70 @@ interface EmberLedgerProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+interface HeroPortraitAvatarProps {
+  classType: HeroClass;
+  name: string;
+  portraitUrl: string;
+  fallbackUrl: string;
+  isSengoku: boolean;
+}
+
+const HeroPortraitAvatar: React.FC<HeroPortraitAvatarProps> = ({
+  classType,
+  name,
+  portraitUrl,
+  fallbackUrl,
+  isSengoku,
+}) => {
+  const [srcStage, setSrcStage] = useState<'primary' | 'svg' | 'crest'>('primary');
+  const activeSrc = srcStage === 'primary' ? portraitUrl : fallbackUrl;
+  const ringBorder = isSengoku ? 'border-amber-700/85' : 'border-amber-500/70';
+
+  if (srcStage === 'crest') {
+    return <HeroCrestSvg classType={classType} className="w-12 h-12" />;
+  }
+
+  return (
+    <div className="relative w-12 h-12 shrink-0">
+      <img
+        src={activeSrc}
+        alt={`Retrato de ${name}`}
+        loading="lazy"
+        onError={() =>
+          setSrcStage((prev) =>
+            prev === 'primary' && portraitUrl !== fallbackUrl ? 'svg' : 'crest'
+          )
+        }
+        className={`w-12 h-12 rounded-full border-2 object-cover shadow-md bg-stone-900 ${ringBorder}`}
+      />
+      <div className="absolute -bottom-1 -right-1 rounded-full bg-stone-950/90 p-0.5 shadow">
+        <HeroCrestSvg classType={classType} className="w-4 h-4" />
+      </div>
+    </div>
+  );
+};
+
+interface RelicThumbProps {
+  src: string;
+  alt: string;
+  fallback: React.ReactNode;
+}
+
+const RelicThumb: React.FC<RelicThumbProps> = ({ src, alt, fallback }) => {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <>{fallback}</>;
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      className="w-7 h-7 rounded-md object-cover border border-amber-700/50 shrink-0 shadow-sm bg-stone-900"
+    />
+  );
+};
 
 export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => {
   const party = useGameStore((state) => state.party);
@@ -49,28 +113,60 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
       classType: 'warrior',
       name: 'Guerreiro',
       role: 'Espada • Manto Branco',
-      icon: <HeroCrestSvg classType="warrior" className="w-9 h-9" />,
+      icon: (
+        <HeroPortraitAvatar
+          classType="warrior"
+          name="Guerreiro"
+          portraitUrl="/assets/portraits/hero-warrior.jpg"
+          fallbackUrl="/assets/portraits/hero-warrior.svg"
+          isSengoku={isSengoku}
+        />
+      ),
       accent: isSengoku ? 'border-amber-900/40 bg-amber-950/10' : 'border-orange-500/30 bg-orange-950/10',
     },
     {
       classType: 'mage',
       name: 'Mago',
       role: 'Cajado • Manto Preto',
-      icon: <HeroCrestSvg classType="mage" className="w-9 h-9" />,
+      icon: (
+        <HeroPortraitAvatar
+          classType="mage"
+          name="Mago"
+          portraitUrl="/assets/portraits/hero-mage.jpg"
+          fallbackUrl="/assets/portraits/hero-mage.svg"
+          isSengoku={isSengoku}
+        />
+      ),
       accent: isSengoku ? 'border-stone-700/40 bg-stone-900/10' : 'border-purple-500/30 bg-purple-950/10',
     },
     {
       classType: 'cleric',
       name: 'Clérigo',
       role: 'Escudo • Manto Branco',
-      icon: <HeroCrestSvg classType="cleric" className="w-9 h-9" />,
+      icon: (
+        <HeroPortraitAvatar
+          classType="cleric"
+          name="Clérigo"
+          portraitUrl="/assets/portraits/hero-cleric.jpg"
+          fallbackUrl="/assets/portraits/hero-cleric.svg"
+          isSengoku={isSengoku}
+        />
+      ),
       accent: isSengoku ? 'border-amber-900/40 bg-amber-950/10' : 'border-sky-500/30 bg-sky-950/10',
     },
     {
       classType: 'rogue',
       name: 'Ladino',
       role: 'Chave • Manto Preto',
-      icon: <HeroCrestSvg classType="rogue" className="w-9 h-9" />,
+      icon: (
+        <HeroPortraitAvatar
+          classType="rogue"
+          name="Ladino"
+          portraitUrl="/assets/portraits/hero-rogue.jpg"
+          fallbackUrl="/assets/portraits/hero-rogue.svg"
+          isSengoku={isSengoku}
+        />
+      ),
       accent: isSengoku ? 'border-stone-700/40 bg-stone-900/10' : 'border-emerald-500/30 bg-emerald-950/10',
     },
   ];
@@ -185,8 +281,12 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
         <div className="space-y-2.5 pt-2 border-t border-stone-500/30">
           <div className="grid grid-cols-2 gap-2 text-xs font-mono">
             <div className={`p-2.5 rounded-lg border flex flex-col justify-between gap-1.5 ${cardCls}`}>
-              <div className="flex items-center gap-1.5">
-                <FlaskConical className="w-4 h-4 text-emerald-600" />
+              <div className="flex items-center gap-2">
+                <RelicThumb
+                  src="/assets/props/prop-potion-flask.jpg"
+                  alt="Poção Alquímica"
+                  fallback={<FlaskConical className="w-4 h-4 text-emerald-600" />}
+                />
                 <span className="tabular-nums">Poções: {party.potions}</span>
               </div>
               <button
@@ -215,8 +315,12 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
             </div>
 
             <div className={`p-2.5 rounded-lg border flex flex-col justify-between gap-1.5 ${cardCls}`}>
-              <div className="flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-amber-500" />
+              <div className="flex items-center gap-2">
+                <RelicThumb
+                  src="/assets/props/prop-chest-artifact.jpg"
+                  alt="Artefatos Mágicos"
+                  fallback={<Sparkles className="w-4 h-4 text-amber-500" />}
+                />
                 <span className="tabular-nums">Itens: {party.magicItems}</span>
               </div>
               <button
@@ -234,8 +338,12 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
           </div>
 
           <div className={`flex items-center justify-between p-2.5 rounded-lg border text-xs font-mono tabular-nums ${cardCls}`}>
-            <span className="flex items-center gap-1.5">
-              <Gem className="w-4 h-4 text-cyan-600" />
+            <span className="flex items-center gap-2">
+              <RelicThumb
+                src="/assets/props/prop-gems-cluster.jpg"
+                alt="Gemas de Esmeralda"
+                fallback={<Gem className="w-4 h-4 text-cyan-600" />}
+              />
               Gemas: {party.gems} (+{party.gems * 2})
             </span>
             <span>Lacaios: {minionsDefeatedCount} (+{minionsGlory})</span>

@@ -1,7 +1,9 @@
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
+import { Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { DungeonCoord, ThemeId } from '../../engine/types';
+import { getStandeeTexture } from './standeeTextures';
 
 interface PartyPawn3DProps {
   coord: DungeonCoord;
@@ -43,13 +45,13 @@ export const PartyPawn3D: React.FC<PartyPawn3DProps> = ({
       ringRef.current.rotation.z = t * 0.85;
     }
     if (pawnRef.current) {
-      pawnRef.current.position.y = 0.52 + Math.sin(t * 3) * 0.05;
+      pawnRef.current.position.y = 0.16 + Math.sin(t * 2.5) * 0.025;
     }
   });
 
+  const partyStandeeTexture = useMemo(() => getStandeeTexture('party', theme), [theme]);
+
   const ringColor = theme === 'sengoku' ? '#f59e0b' : '#d4af37';
-  const bodyColor = theme === 'sengoku' ? '#b45309' : '#c87d55';
-  const emissiveColor = theme === 'sengoku' ? '#d97706' : '#ff6b35';
 
   return (
     <group ref={rootRef} position={[targetX, 0, targetZ]}>
@@ -71,30 +73,31 @@ export const PartyPawn3D: React.FC<PartyPawn3DProps> = ({
         </mesh>
       ))}
 
-      <group ref={pawnRef} position={[0, 0.52, 0]}>
-        {/* Pedestal */}
-        <mesh position={[0, -0.28, 0]} castShadow>
-          <cylinderGeometry args={[0.28, 0.34, 0.14, 12]} />
-          <meshStandardMaterial color="#1e1b18" metalness={0.5} roughness={0.4} />
-        </mesh>
-
-        {/* Core miniature body */}
+      <group ref={pawnRef} position={[0, 0.16, 0]}>
+        {/* Low Champion Pedestal + Gold Rim (no colliding 3D crystal) */}
         <mesh castShadow receiveShadow>
-          <octahedronGeometry args={[0.32, 0]} />
-          <meshStandardMaterial
-            color={bodyColor}
-            metalness={0.65}
-            roughness={0.25}
-            emissive={emissiveColor}
-            emissiveIntensity={0.3}
-          />
+          <cylinderGeometry args={[0.38, 0.46, 0.1, 16]} />
+          <meshStandardMaterial color="#1e1b18" metalness={0.55} roughness={0.35} />
+        </mesh>
+        <mesh position={[0, 0.04, 0]}>
+          <cylinderGeometry args={[0.32, 0.35, 0.06, 16]} />
+          <meshStandardMaterial color={ringColor} metalness={0.75} roughness={0.22} />
         </mesh>
 
-        {/* Banner/Crown pinnacle */}
-        <mesh position={[0, 0.38, 0]}>
-          <coneGeometry args={[0.14, 0.28, 4]} />
-          <meshStandardMaterial color="#facc15" metalness={0.85} roughness={0.15} />
-        </mesh>
+        {/* 2.5D Sashimono Party Banner Standee */}
+        {partyStandeeTexture && (
+          <Billboard position={[0, 0.64, 0]} follow={true}>
+            <mesh>
+              <planeGeometry args={[1.05, 1.32]} />
+              <meshBasicMaterial
+                map={partyStandeeTexture}
+                transparent
+                alphaTest={0.08}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          </Billboard>
+        )}
       </group>
     </group>
   );
