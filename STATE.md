@@ -1,9 +1,9 @@
 # STATE: Tiny Dungeon — The Ember Measure
 
 **Data de Atualização:** 2026-11-18  
-**Status do Projeto:** v1.1.0 Evoluído (Motor Tático, 4 Mapas, Seletor de Temas, Áudio Procedural & PWA Offline)  
+**Status do Projeto:** v1.1.0 Publicado (tag `v1.1.0` enviada a `origin/main`)  
 **Repositório Remoto:** [https://github.com/two2dope/tiny-dungeon](https://github.com/two2dope/tiny-dungeon)  
-**Branch Ativa:** `main` (base `8b2743b` + evolução local não commitada)
+**Branch Ativa:** `main` (sincronizada com `origin/main` + tag `v1.1.0`)
 
 ---
 
