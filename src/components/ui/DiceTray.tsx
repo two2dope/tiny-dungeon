@@ -1,55 +1,33 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { Die, DieSymbol } from '../../engine/types';
+import { Die, DieColor, DieSymbol } from '../../engine/types';
 import { soundEngine } from '../../audio/soundEngine';
 import { CheckCircle2 } from 'lucide-react';
 import { DieSymbolSvg } from './TacticalIcons';
 
-const FULL_DIE_FACE_SPRITES: Partial<Record<DieSymbol, string>> = {
-  sword: '/assets/ui/die-face-sword.webp',
-  shield: '/assets/ui/die-face-shield.webp',
-  boot: '/assets/ui/die-face-boot.webp',
-  magic: '/assets/ui/die-face-magic.webp',
-  rogue: '/assets/ui/die-face-rogue.webp',
-};
+function getDieSpriteUrl(color: DieColor, symbol: DieSymbol): string {
+  return `/assets/ui/die-${color}-${symbol}.webp`;
+}
 
-const EMBLEM_DIE_SPRITES: Partial<Record<DieSymbol, string>> = {
-  skull: '/assets/ui/icon-oni-skull.webp',
-};
-
-const CloakPip: React.FC<{ color: 'white' | 'black' }> = ({ color }) => (
-  <span
-    aria-hidden="true"
-    className={`absolute top-0.5 left-0.5 w-2.5 h-2.5 rounded-full border shadow-sm z-10 ${
-      color === 'white'
-        ? 'bg-stone-100 border-stone-900/90'
-        : 'bg-stone-950 border-amber-400/90'
-    }`}
-  />
-);
-
-const DieFaceArtwork: React.FC<{ symbol: DieSymbol; color: 'white' | 'black' }> = ({
+const DieFaceArtwork: React.FC<{ symbol: DieSymbol; color: DieColor }> = ({
   symbol,
   color,
 }) => {
   const [failed, setFailed] = useState(false);
-  const fullSpriteUrl = FULL_DIE_FACE_SPRITES[symbol];
-  const emblemUrl = EMBLEM_DIE_SPRITES[symbol];
-  const baseUrl =
-    color === 'white' ? '/assets/ui/die-base-white.webp' : '/assets/ui/die-base-black.webp';
-  const obsidianTone =
-    color === 'black' ? 'brightness-[0.68] contrast-[1.2] saturate-[0.85]' : '';
 
-  if (fullSpriteUrl && !failed) {
+  useEffect(() => {
+    setFailed(false);
+  }, [color, symbol]);
+
+  if (!failed) {
     return (
-      <div className="relative w-11 h-11 sm:w-12 sm:h-12 flex items-center justify-center">
-        <CloakPip color={color} />
+      <div className="relative w-11 h-11 sm:w-[3.15rem] sm:h-[3.15rem] flex items-center justify-center">
         <img
-          src={fullSpriteUrl}
+          src={getDieSpriteUrl(color, symbol)}
           alt=""
           aria-hidden="true"
           onError={() => setFailed(true)}
-          className={`w-11 h-11 sm:w-12 sm:h-12 object-contain rounded-[5px] drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)] ${obsidianTone}`}
+          className="w-11 h-11 sm:w-[3.15rem] sm:h-[3.15rem] object-contain drop-shadow-[0_3px_5px_rgba(0,0,0,0.85)]"
         />
       </div>
     );
@@ -57,21 +35,13 @@ const DieFaceArtwork: React.FC<{ symbol: DieSymbol; color: 'white' | 'black' }> 
 
   return (
     <div
-      className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-[5px] flex items-center justify-center bg-contain bg-center bg-no-repeat drop-shadow-[0_2px_4px_rgba(0,0,0,0.75)]"
-      style={{ backgroundImage: `url('${baseUrl}')` }}
+      className={`relative w-11 h-11 rounded-lg border flex items-center justify-center shadow-md ${
+        color === 'white'
+          ? 'bg-stone-200 border-stone-400'
+          : 'bg-stone-950 border-amber-500/70'
+      }`}
     >
-      <CloakPip color={color} />
-      {emblemUrl && !failed ? (
-        <img
-          src={emblemUrl}
-          alt=""
-          aria-hidden="true"
-          onError={() => setFailed(true)}
-          className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
-        />
-      ) : (
-        <DieSymbolSvg symbol={symbol} className="w-6 h-6 sm:w-7 sm:h-7" />
-      )}
+      <DieSymbolSvg symbol={symbol} className="w-7 h-7" />
     </div>
   );
 };
@@ -133,7 +103,7 @@ export const DiceTray: React.FC = () => {
       <div
         className={`w-full max-w-[26.5rem] grid grid-cols-6 rounded-lg ${
           isSengoku
-            ? 'gui-dice-tray-slots px-[4.8%] pt-[2.8%] pb-[6.4%] gap-[1.8%]'
+            ? 'gui-dice-tray-slots px-[5.2%] pt-[3.6%] pb-[7.8%] gap-[2.2%]'
             : 'p-1.5 gap-1.5 sm:gap-2'
         }`}
       >
@@ -166,7 +136,7 @@ export const DiceTray: React.FC = () => {
               title={`${isWhite ? 'Dado Branco' : 'Dado Negro'}: ${getSymbolLabel(die)}`}
               className={`group touch-target relative flex items-center justify-center transition-all duration-150 ${slotBaseClass} ${
                 isConsumed
-                  ? 'opacity-55 cursor-not-allowed'
+                  ? 'opacity-50 grayscale-[35%] cursor-not-allowed'
                   : isSelected
                     ? 'ring-2 ring-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.75)] scale-105'
                     : isDrafted
@@ -187,7 +157,7 @@ export const DiceTray: React.FC = () => {
       </div>
 
       {/* Aligned 6-column caption strip below wooden compartments */}
-      <div className="w-full max-w-[26.5rem] grid grid-cols-6 px-[4.8%] gap-[1.8%] text-[10px] font-mono text-amber-200/85 text-center capitalize">
+      <div className="w-full max-w-[26.5rem] grid grid-cols-6 px-[5.2%] gap-[2.2%] text-[10px] font-mono text-amber-200/85 text-center capitalize">
         {dicePool.dice.map((die) => (
           <span
             key={`lbl-${die.id}`}

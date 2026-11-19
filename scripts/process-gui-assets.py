@@ -7,8 +7,20 @@ from PIL import Image
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SRC_DIR = REPO_ROOT / "assets" / "GUI UI_UX"
+PROPS_SRC_DIR = REPO_ROOT / "assets" / "props"
+DICE_SRC_DIR = REPO_ROOT / "assets" / "dice"
 OUT_DIR = REPO_ROOT / "public" / "assets" / "ui"
 PORTRAITS_OUT_DIR = OUT_DIR / "portraits"
+
+
+def resolve_src_path(base_dir: Path, pattern: str) -> Path:
+    direct = base_dir / pattern
+    if direct.exists():
+        return direct
+    matches = sorted(base_dir.glob(pattern))
+    if not matches:
+        raise FileNotFoundError(f"Asset nao encontrado ({pattern}) em {base_dir}")
+    return matches[0]
 
 
 def remove_white_backdrop_bfs(
@@ -90,6 +102,20 @@ def remove_white_backdrop_bfs(
     return out
 
 
+def trim_transparent_padding(img: Image.Image, pad: int = 2) -> Image.Image:
+    alpha = img.getchannel("A")
+    mask = alpha.point(lambda a: 255 if a > 12 else 0)
+    bbox = mask.getbbox()
+    if not bbox:
+        return img
+    w, h = img.size
+    left = max(0, bbox[0] - pad)
+    top = max(0, bbox[1] - pad)
+    right = min(w, bbox[2] + pad)
+    bottom = min(h, bbox[3] + pad)
+    return img.crop((left, top, right, bottom))
+
+
 def resize_max(img: Image.Image, max_dim: int) -> Image.Image:
     w, h = img.size
     if max(w, h) <= max_dim:
@@ -99,10 +125,14 @@ def resize_max(img: Image.Image, max_dim: int) -> Image.Image:
     return img.resize(new_size, Image.Resampling.LANCZOS)
 
 
-def process_sprite(src_name: str, out_name: str, max_dim: int) -> Path:
-    src_path = SRC_DIR / src_name
-    if not src_path.exists():
-        raise FileNotFoundError(f"Asset nao encontrado: {src_path}")
+def process_sprite(
+    src_name: str,
+    out_name: str,
+    max_dim: int,
+    src_dir: Path = SRC_DIR,
+    trim: bool = False,
+) -> Path:
+    src_path = resolve_src_path(src_dir, src_name)
 
     with Image.open(src_path) as im:
         # Downscale oversized sources gently to max_dim * 2 before BFS for speed + crisp AA
@@ -115,30 +145,12 @@ def process_sprite(src_name: str, out_name: str, max_dim: int) -> Path:
                 Image.Resampling.LANCZOS,
             )
         cut = remove_white_backdrop_bfs(im)
+        if trim:
+            cut = trim_transparent_padding(cut, pad=2)
         final_img = resize_max(cut, max_dim)
         out_path = OUT_DIR / out_name
         final_img.save(out_path, "WEBP", quality=90, method=4)
         return out_path
-
-
-def process_dice_pair(src_name: str, left_out: str, right_out: str, max_dim: int) -> list[Path]:
-    src_path = SRC_DIR / src_name
-    if not src_path.exists():
-        raise FileNotFoundError(f"Asset nao encontrado: {src_path}")
-
-    saved: list[Path] = []
-    with Image.open(src_path) as im:
-        w, h = im.size
-        halves = [
-            (im.crop((0, 0, w // 2, h)), OUT_DIR / left_out),
-            (im.crop((w // 2, 0, w, h)), OUT_DIR / right_out),
-        ]
-        for half_im, out_path in halves:
-            cut = remove_white_backdrop_bfs(half_im)
-            final_img = resize_max(cut, max_dim)
-            final_img.save(out_path, "WEBP", quality=90, method=4)
-            saved.append(out_path)
-    return saved
 
 
 def process_portrait(src_name: str, out_name: str, center_crop_ratio: float | None = None) -> Path:
@@ -186,38 +198,47 @@ def main() -> None:
         ("Jade_token_with_gold_rim_0b3f71a8.jpg", "token-gem-jade.webp", 256),
         ("Gold_and_crimson_relic_medallion_408ff248.jpg", "token-relic-gold.webp", 256),
         ("Wrought_iron_trap_board_token_42c76392.jpg", "token-trap-iron.webp", 256),
-        # Die faces
-        ("Bone_game_die_icon_with_2df9ae86.jpg", "die-face-sword.webp", 160),
-        ("Samurai_shield_die_face_texture_15e0df25.jpg", "die-face-shield.webp", 160),
-        ("Die_face_icon_dungeon_staircase_ba42e845.jpg", "die-face-boot.webp", 160),
-        ("Yin-Yang_die_face_icon_7fe1caa5.jpg", "die-face-magic.webp", 160),
         # Crests
         ("Sengoku_clan_medallion_icon_5da252db.jpg", "crest-sengoku-mon.webp", 128),
         ("Katana_blades_and_kabuto_crest_51df0415.jpg", "icon-combat-power.webp", 128),
-        # 8 craftable Sengoku relics + Rogue carved-bone die face
+        # 5 original Sengoku relics
         ("Relic_katana_masamune_icon.png", "relic-katana.webp", 128),
         ("Relic_omamori_amulet_icon.png", "relic-omamori.webp", 128),
         ("Relic_yata_mirror_icon.png", "relic-mirror.webp", 128),
         ("Relic_yoroi_armor_icon.png", "relic-armor.webp", 128),
         ("Relic_onmyo_seal_icon.png", "relic-seal.webp", 128),
-        ("Relic_kaginawa_hook_icon.png", "relic-kaginawa.webp", 128),
-        ("Relic_waraji_boots_icon.png", "relic-waraji.webp", 128),
-        ("Relic_elixir_gourd_icon.png", "relic-elixir.webp", 128),
-        ("Die_face_rogue_kunai_key.png", "die-face-rogue.webp", 160),
+    ]
+
+    props_round3_sprites = [
+        # 11 curated Round 3 Google Flow winners (board tokens, milestone icons, potion slots, upgraded relics)
+        ("*_7f02dae7.jpg", "token-potion-fountain.webp", 256),
+        ("*_59fbbf08.jpg", "token-sealed-lock.webp", 256),
+        ("*_f0f70279.jpg", "token-edge-portal.webp", 256),
+        ("*_f4438dc6.jpg", "icon-bonus-levelup.webp", 128),
+        ("*_28cb706c.jpg", "icon-bonus-forge.webp", 128),
+        ("*_c6d57c71.jpg", "icon-bonus-alchemist.webp", 128),
+        ("*_93bd9fcc.jpg", "icon-potion-slot-empty.webp", 128),
+        ("*_a26bfefb.jpg", "icon-potion-slot-full.webp", 128),
+        ("*_9c0d1d4d.jpg", "relic-kaginawa.webp", 128),
+        ("*_722cb50b.jpg", "relic-waraji.webp", 128),
+        ("*_49de808b.jpg", "relic-elixir.webp", 128),
+    ]
+
+    dice_round4_sprites = [
+        (f"die-{color}-{symbol}.png", f"die-{color}-{symbol}.webp", 160)
+        for color in ("white", "black")
+        for symbol in ("sword", "shield", "boot", "magic", "rogue", "skull")
     ]
 
     generated: list[Path] = []
     for src_name, out_name, max_dim in sprites:
         generated.append(process_sprite(src_name, out_name, max_dim))
-
-    generated.extend(
-        process_dice_pair(
-            "Blank_game_die_faces_reference_e299250d.jpg",
-            "die-base-white.webp",
-            "die-base-black.webp",
-            160,
+    for src_pattern, out_name, max_dim in props_round3_sprites:
+        generated.append(process_sprite(src_pattern, out_name, max_dim, src_dir=PROPS_SRC_DIR))
+    for src_name, out_name, max_dim in dice_round4_sprites:
+        generated.append(
+            process_sprite(src_name, out_name, max_dim, src_dir=DICE_SRC_DIR, trim=True)
         )
-    )
 
     portraits = [
         ("Samurai_warrior_portrait_dba1460b.jpg", "warrior.webp", None),

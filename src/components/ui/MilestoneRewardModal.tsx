@@ -21,6 +21,7 @@ export const MilestoneRewardModal: React.FC = () => {
   const resolvePendingReward = useGameStore((state) => state.resolvePendingReward);
 
   const [anyTab, setAnyTab] = useState<'hero' | 'relic' | 'gems'>('hero');
+  const [emblemFailed, setEmblemFailed] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const firstFocusRef = useRef<HTMLButtonElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -29,6 +30,7 @@ export const MilestoneRewardModal: React.FC = () => {
 
   useEffect(() => {
     setAnyTab('hero');
+    setEmblemFailed(false);
   }, [activeReward?.id]);
 
   useEffect(() => {
@@ -108,7 +110,23 @@ export const MilestoneRewardModal: React.FC = () => {
               ? `Recompensa 1 de ${pendingRewards.length}`
               : 'Recompensa de Marco'}
           </span>
-          <Award className={`w-5 h-5 ${isSengoku ? 'text-amber-400' : 'text-sky-400'}`} />
+          {!emblemFailed ? (
+            <img
+              src={
+                activeReward.kind === 'choose-hero-level'
+                  ? '/assets/ui/icon-bonus-levelup.webp'
+                  : activeReward.kind === 'choose-relic-step'
+                    ? '/assets/ui/icon-bonus-forge.webp'
+                    : '/assets/ui/icon-bonus-alchemist.webp'
+              }
+              alt=""
+              aria-hidden="true"
+              onError={() => setEmblemFailed(true)}
+              className="w-7 h-7 object-contain drop-shadow"
+            />
+          ) : (
+            <Award className={`w-5 h-5 ${isSengoku ? 'text-amber-400' : 'text-sky-400'}`} />
+          )}
         </div>
 
         <h2

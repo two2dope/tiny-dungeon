@@ -36,6 +36,7 @@ function resolveRoomStandeeKind(room: RoomState): StandeeKind | null {
   if (primary === 'gem') return 'gem';
   if (primary === 'item') return 'item';
   if (primary === 'trap') return 'trap';
+  if (primary === 'potion') return 'potion';
   return null;
 }
 
@@ -77,6 +78,7 @@ interface RoomTile3DProps {
   room: RoomState;
   isCurrent: boolean;
   isValidMove: boolean;
+  isPortal?: boolean;
   canCrossBarriers?: boolean;
   party?: HeroParty;
   currentRound?: number;
@@ -91,6 +93,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
   room,
   isCurrent,
   isValidMove,
+  isPortal = false,
   canCrossBarriers = false,
   party,
   currentRound = 1,
@@ -152,12 +155,32 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
 
   const renderBadge = (): React.ReactNode | null => {
     const moveRing = isValidMove ? 'ring-1 ring-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.65)]' : '';
-    const lockPrefix = room.locked ? (canCrossBarriers ? '🔓 ' : '🔒 ') : '';
+    const lockNode = room.locked ? (
+      canCrossBarriers ? (
+        <span aria-hidden="true">🔓</span>
+      ) : (
+        <img
+          src="/assets/ui/token-sealed-lock.webp"
+          alt=""
+          aria-hidden="true"
+          className="w-3.5 h-3.5 object-contain shrink-0"
+        />
+      )
+    ) : null;
+    const portalNode = isPortal ? (
+      <img
+        src="/assets/ui/token-edge-portal.webp"
+        alt=""
+        aria-hidden="true"
+        className="w-3.5 h-3.5 object-contain shrink-0"
+      />
+    ) : null;
 
     if (room.type === 'start') {
       return (
-        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono whitespace-nowrap shadow bg-stone-950/90 border-amber-400/75 text-amber-200 ${moveRing}`}>
-          Início
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono whitespace-nowrap shadow flex items-center gap-1 bg-stone-950/90 border-amber-400/75 text-amber-200 ${moveRing}`}>
+          {portalNode}
+          <span>Início</span>
         </div>
       );
     }
@@ -165,34 +188,44 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
     if (isBoss && room.villain && bossState) {
       if (bossState === 'dormant') {
         return (
-          <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono whitespace-nowrap shadow bg-stone-900/90 border-stone-500/70 text-stone-300 ${moveRing}`}>
-            🔒 R{room.villain.round}
+          <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono whitespace-nowrap shadow flex items-center gap-1 bg-stone-900/90 border-stone-500/70 text-stone-300 ${moveRing}`}>
+            {portalNode}
+            <span>🔒 R{room.villain.round}</span>
           </div>
         );
       }
       if (bossState === 'active') {
         return (
-          <div className={`px-2 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow-lg bg-red-950/95 border-amber-300 text-amber-200 ${moveRing}`}>
-            ⚔️ R{room.villain.round} • {room.villain.tier1Power}/{room.villain.tier2Power}
+          <div className={`px-2 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow-lg flex items-center gap-1 bg-red-950/95 border-amber-300 text-amber-200 ${moveRing}`}>
+            {portalNode}
+            <span>⚔️ R{room.villain.round} • {room.villain.tier1Power}/{room.villain.tier2Power}</span>
           </div>
         );
       }
       if (bossState === 'defeated') {
         return (
-          <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-emerald-950/95 border-emerald-400 text-emerald-200 ${moveRing}`}>
-            ✓ DERROTADO
+          <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 bg-emerald-950/95 border-emerald-400 text-emerald-200 ${moveRing}`}>
+            {portalNode}
+            <span>✓ DERROTADO</span>
           </div>
         );
       }
       return (
-        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-red-950/95 border-red-400 text-red-200 ${moveRing}`}>
-          ☠ VITORIOSO
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 bg-red-950/95 border-red-400 text-red-200 ${moveRing}`}>
+          {portalNode}
+          <span>☠ VITORIOSO</span>
         </div>
       );
     }
 
     if (room.cleared || primaryKind === 'empty') {
-      return null;
+      if (!isPortal) return null;
+      return (
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 bg-teal-950/90 border-teal-400/75 text-teal-200 ${moveRing}`}>
+          {portalNode}
+          <span>Saída</span>
+        </div>
+      );
     }
 
     const contents = getRoomContents(room);
@@ -228,7 +261,8 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
               : 'bg-red-950/95 border-red-400/85 text-red-100'
           } ${moveRing}`}
         >
-          {lockPrefix && <span>{lockPrefix.trim()}</span>}
+          {portalNode}
+          {lockNode}
           <HeroCrestSvg classType={minion.classAffinity ?? 'warrior'} className="w-3.5 h-3.5" />
           <span>Nv.{minion.reqLevel}</span>
           {extras.length > 0 && <span className="text-amber-200">• {extras.join(' ')}</span>}
@@ -243,8 +277,10 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
     if (primaryKind === 'item') {
       const extras = ['gem', 'trap', 'potion'].map(formatSecondaryChip).filter(Boolean);
       return (
-        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-amber-400/95 border-amber-200 text-stone-950 ${moveRing}`}>
-          {lockPrefix}✦ +1{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 bg-amber-400/95 border-amber-200 text-stone-950 ${moveRing}`}>
+          {portalNode}
+          {lockNode}
+          <span>✦ +1{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}</span>
         </div>
       );
     }
@@ -252,8 +288,10 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
     if (primaryKind === 'gem' && gemItem?.kind === 'gem') {
       const extras = ['trap', 'potion'].map(formatSecondaryChip).filter(Boolean);
       return (
-        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-emerald-950/95 border-emerald-300/80 text-emerald-100 ${moveRing}`}>
-          {lockPrefix}💎 +{gemItem.count}{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 bg-emerald-950/95 border-emerald-300/80 text-emerald-100 ${moveRing}`}>
+          {portalNode}
+          {lockNode}
+          <span>💎 +{gemItem.count}{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}</span>
         </div>
       );
     }
@@ -263,21 +301,25 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
       const extras = ['potion'].map(formatSecondaryChip).filter(Boolean);
       return (
         <div
-          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow ${
+          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 ${
             effectiveDamage === 0
               ? 'bg-emerald-950/95 border-emerald-400 text-emerald-200'
               : 'bg-orange-950/95 border-orange-300 text-orange-100'
           } ${moveRing}`}
         >
-          {lockPrefix}⚠️ -{effectiveDamage}♥{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}
+          {portalNode}
+          {lockNode}
+          <span>⚠️ -{effectiveDamage}♥{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}</span>
         </div>
       );
     }
 
     if (primaryKind === 'potion' && potionItem?.kind === 'potion') {
       return (
-        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-teal-950/95 border-teal-300/85 text-teal-100 ${moveRing}`}>
-          {lockPrefix}🧪 +{potionItem.count}
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 bg-teal-950/95 border-teal-300/85 text-teal-100 ${moveRing}`}>
+          {portalNode}
+          {lockNode}
+          <span>🧪 +{potionItem.count}</span>
         </div>
       );
     }
@@ -324,7 +366,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         : bossState === 'dormant'
           ? [1.18, 1.48]
           : [1.28, 1.6]
-    : primaryKind === 'gem' || primaryKind === 'item' || primaryKind === 'trap'
+    : primaryKind === 'gem' || primaryKind === 'item' || primaryKind === 'trap' || primaryKind === 'potion'
       ? [0.92, 1.15]
       : [1.06, 1.32];
 
@@ -336,7 +378,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         : bossState === 'dormant'
           ? 0.8
           : 0.88
-    : primaryKind === 'gem' || primaryKind === 'item' || primaryKind === 'trap'
+    : primaryKind === 'gem' || primaryKind === 'item' || primaryKind === 'trap' || primaryKind === 'potion'
       ? 0.64
       : 0.78;
 

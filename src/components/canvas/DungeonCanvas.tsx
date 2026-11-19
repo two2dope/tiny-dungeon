@@ -321,6 +321,7 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
             room={room}
             isCurrent={isCurrent}
             isValidMove={isValid}
+            isPortal={Boolean(getPortalDestination(dungeon, room.coord))}
             party={party}
             currentRound={currentRound}
             bossOutcomes={bossOutcomes}
@@ -543,9 +544,25 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
           aria-live="polite"
           className={`pointer-events-none absolute top-[4.75rem] ${
             isLedgerOpen ? 'left-1/2 lg:left-[calc(50%+11.75rem)]' : 'left-1/2'
-          } -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#120e14]/90 border border-amber-500/45 text-xs font-mono text-amber-200 shadow-xl backdrop-blur-md whitespace-nowrap transition-[left] duration-200`}
+          } -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#120e14]/90 border border-amber-500/45 text-xs font-mono text-amber-200 shadow-xl backdrop-blur-md whitespace-nowrap flex items-center gap-2 transition-[left] duration-200`}
         >
-          {getRoomPreviewText(hoveredRoom)}
+          {hoveredRoom.locked && !hasBarrierCrossingAbility(party) && (
+            <img
+              src="/assets/ui/token-sealed-lock.webp"
+              alt=""
+              aria-hidden="true"
+              className="w-4 h-4 object-contain shrink-0"
+            />
+          )}
+          {Boolean(getPortalDestination(dungeon, hoveredRoom.coord)) && (
+            <img
+              src="/assets/ui/token-edge-portal.webp"
+              alt=""
+              aria-hidden="true"
+              className="w-4 h-4 object-contain shrink-0"
+            />
+          )}
+          <span>{getRoomPreviewText(hoveredRoom)}</span>
         </div>
       )}
     </div>

@@ -9,6 +9,7 @@ export type StandeeKind =
   | 'gem'
   | 'item'
   | 'trap'
+  | 'potion'
   | 'party';
 
 export const STANDEE_KINDS: readonly StandeeKind[] = [
@@ -22,6 +23,7 @@ export const STANDEE_KINDS: readonly StandeeKind[] = [
   'gem',
   'item',
   'trap',
+  'potion',
   'party',
 ] as const;
 
@@ -37,6 +39,7 @@ export const STANDEE_ASSET_URLS: Record<StandeeKind, string> = {
   gem: '/assets/ui/token-gem-jade.webp',
   item: '/assets/ui/token-relic-gold.webp',
   trap: '/assets/ui/token-trap-iron.webp',
+  potion: '/assets/ui/token-potion-fountain.webp',
 };
 
 export function resolveVillainStandeeKind(villainId?: string): StandeeKind {

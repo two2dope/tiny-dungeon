@@ -282,6 +282,14 @@ function getKindColors(kind: StandeeKind, isSengoku: boolean): {
         ink: '#18181b',
         accent: '#ef4444',
       };
+    case 'potion':
+      return {
+        bgTop: '#0f766e',
+        bgBottom: '#042f2e',
+        rim: '#5eead4',
+        ink: '#042f2e',
+        accent: '#2dd4bf',
+      };
     case 'party':
     default:
       return {
@@ -736,6 +744,27 @@ function drawArtwork(ctx: CanvasRenderingContext2D, kind: StandeeKind, colors: R
       break;
     }
 
+    case 'potion': {
+      ctx.fillStyle = '#14b8a6';
+      ctx.strokeStyle = colors.ink;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(128, 198, 52, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#2dd4bf';
+      ctx.beginPath();
+      ctx.arc(128, 134, 34, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#d97706';
+      ctx.fillRect(112, 86, 32, 18);
+      ctx.strokeRect(112, 86, 32, 18);
+      break;
+    }
+
     case 'party':
     default: {
       ctx.strokeStyle = colors.ink;
@@ -818,6 +847,10 @@ function drawPropMedallionFrame(
   ctx.stroke();
 }
 
+function isPropStandeeKind(kind: StandeeKind): boolean {
+  return kind === 'gem' || kind === 'item' || kind === 'trap' || kind === 'potion';
+}
+
 function hydrateStandeeFromFlowAsset(
   canvas: HTMLCanvasElement,
   ctx: CanvasRenderingContext2D,
@@ -837,7 +870,7 @@ function hydrateStandeeFromFlowAsset(
         const h = canvas.height;
         const natW = img.naturalWidth || w;
         const natH = img.naturalHeight || h;
-        const isProp = kind === 'gem' || kind === 'item' || kind === 'trap';
+        const isProp = isPropStandeeKind(kind);
 
         if (isProp) {
           const isSengoku = theme === 'sengoku';
@@ -899,7 +932,7 @@ export function getStandeeTexture(
   const { canvas, ctx } = surface;
   const isSengoku = theme === 'sengoku';
   const colors = getKindColors(kind, isSengoku);
-  const isProp = kind === 'gem' || kind === 'item' || kind === 'trap';
+  const isProp = isPropStandeeKind(kind);
 
   if (isProp) {
     drawPropMedallionFrame(ctx, isSengoku, colors, () => {

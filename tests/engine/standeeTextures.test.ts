@@ -11,7 +11,7 @@ describe('standeeTextures', () => {
     vi.restoreAllMocks();
   });
 
-  it('exposes all 11 tabletop standee kinds mapped to Google Flow assets', () => {
+  it('exposes all 12 tabletop standee kinds mapped to Google Flow assets', () => {
     expect(STANDEE_KINDS).toEqual([
       'goblin',
       'skeleton',
@@ -23,6 +23,7 @@ describe('standeeTextures', () => {
       'gem',
       'item',
       'trap',
+      'potion',
       'party',
     ]);
 

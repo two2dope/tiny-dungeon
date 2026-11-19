@@ -29,10 +29,17 @@ describe('UI Components with Illustrated GUI Skin', () => {
     vi.restoreAllMocks();
   });
 
-  it('displays 6 dice in DiceTray and allows clicking to toggle draft selection', () => {
-    render(<DiceTray />);
+  it('displays 6 dice in DiceTray with color-matched 2.5D sprite URLs and click drafting', () => {
+    const { container } = render(<DiceTray />);
     const diceButtons = screen.getAllByRole('button');
     expect(diceButtons.length).toBeGreaterThanOrEqual(6);
+    const dieImgs = container.querySelectorAll('img');
+    expect(dieImgs).toHaveLength(6);
+    dieImgs.forEach((img) => {
+      expect(img.getAttribute('src')).toMatch(
+        /^\/assets\/ui\/die-(white|black)-(sword|shield|boot|magic|rogue|skull)\.webp$/
+      );
+    });
   });
 
   it('renders HUD with map selector, vitality meter and action buttons', () => {
@@ -52,6 +59,9 @@ describe('UI Components with Illustrated GUI Skin', () => {
     expect(screen.getByAltText('Retrato de Ladino')).toBeDefined();
     expect(screen.getByLabelText(/Trilha de Poções/i)).toBeDefined();
     expect(screen.getAllByRole('checkbox')).toHaveLength(12);
+    expect(screen.getByAltText('Bônus Upgrade de Herói')).toBeDefined();
+    expect(screen.getByAltText('Bônus Forja Gratuita')).toBeDefined();
+    expect(screen.getByAltText('Escolha do Alquimista')).toBeDefined();
     expect(screen.getByLabelText('Acervo de Relíquias Forjadas')).toBeDefined();
     expect(screen.getByAltText('Katana Masamune')).toBeDefined();
     expect(screen.getByAltText('Gancho Kaginawa')).toBeDefined();

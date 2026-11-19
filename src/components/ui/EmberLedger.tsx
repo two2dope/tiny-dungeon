@@ -85,6 +85,7 @@ interface RelicThumbProps {
   alt: string;
   fallback: React.ReactNode;
   className?: string;
+  ariaHidden?: boolean;
 }
 
 const RelicThumb: React.FC<RelicThumbProps> = ({
@@ -92,6 +93,7 @@ const RelicThumb: React.FC<RelicThumbProps> = ({
   alt,
   fallback,
   className = 'w-5 h-5 object-contain shrink-0 drop-shadow-sm',
+  ariaHidden = false,
 }) => {
   const [failed, setFailed] = useState(false);
   if (failed) return <>{fallback}</>;
@@ -99,7 +101,8 @@ const RelicThumb: React.FC<RelicThumbProps> = ({
   return (
     <img
       src={src}
-      alt={alt}
+      alt={ariaHidden ? '' : alt}
+      aria-hidden={ariaHidden || undefined}
       loading="lazy"
       onError={() => setFailed(true)}
       className={className}
@@ -256,7 +259,12 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
     if (threshold === 4) {
       return (
         <>
-          <HeroCrestSvg classType="warrior" className="w-3.5 h-3.5" />
+          <RelicThumb
+            src="/assets/ui/icon-bonus-levelup.webp"
+            alt="Bônus Upgrade de Herói"
+            className="w-4 h-4 object-contain shrink-0"
+            fallback={<HeroCrestSvg classType="warrior" className="w-3.5 h-3.5" />}
+          />
           <span>+Nv</span>
         </>
       );
@@ -265,9 +273,9 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
       return (
         <>
           <RelicThumb
-            src="/assets/ui/icon-item-scroll.webp"
-            alt="Bônus de Forja"
-            className="w-3.5 h-3.5 object-contain shrink-0"
+            src="/assets/ui/icon-bonus-forge.webp"
+            alt="Bônus Forja Gratuita"
+            className="w-4 h-4 object-contain shrink-0"
             fallback={<Sparkles className="w-3 h-3 text-amber-300" />}
           />
           <span>Forja</span>
@@ -277,12 +285,12 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
     return (
       <>
         <RelicThumb
-          src="/assets/ui/icon-gem-magatama.webp"
+          src="/assets/ui/icon-bonus-alchemist.webp"
           alt="Escolha do Alquimista"
-          className="w-3.5 h-3.5 object-contain shrink-0"
-          fallback={<Gem className="w-3 h-3 text-cyan-300" />}
+          className="w-4 h-4 object-contain shrink-0"
+          fallback={<Award className="w-3 h-3 text-amber-300 shrink-0" />}
         />
-        <Award className="w-3 h-3 text-amber-300 shrink-0" />
+        <span>Bônus</span>
       </>
     );
   };
@@ -511,16 +519,28 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                           aria-checked={filled}
                           aria-label={`Poção ${slotNum}`}
                           title={`Poção ${slotNum} (cura +2 Vida)`}
-                          className={`h-4 rounded border flex items-center justify-center ${
+                          className={`h-5 rounded border flex items-center justify-center ${
                             filled
-                              ? 'bg-emerald-700/85 border-emerald-400 text-emerald-100'
+                              ? 'bg-emerald-900/80 border-emerald-400 text-emerald-100'
                               : 'bg-black/45 border-stone-600/80 text-stone-500'
                           }`}
                         >
                           {filled ? (
-                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            <RelicThumb
+                              src="/assets/ui/icon-potion-slot-full.webp"
+                              alt=""
+                              ariaHidden={true}
+                              className="w-4 h-4 object-contain"
+                              fallback={<Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            />
                           ) : (
-                            <span className="text-[8px] font-mono leading-none">{slotNum}</span>
+                            <RelicThumb
+                              src="/assets/ui/icon-potion-slot-empty.webp"
+                              alt=""
+                              ariaHidden={true}
+                              className="w-4 h-4 object-contain opacity-45"
+                              fallback={<span className="text-[8px] font-mono leading-none">{slotNum}</span>}
+                            />
                           )}
                         </div>
                       );
@@ -528,7 +548,7 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                   </div>
                   <div
                     title={milestone.label}
-                    className={`w-16 h-4 rounded border px-1 flex items-center justify-center gap-1 text-[8px] font-mono font-bold shrink-0 ${
+                    className={`w-16 h-5 rounded border px-1 flex items-center justify-center gap-1 text-[8px] font-mono font-bold shrink-0 ${
                       isClaimed
                         ? 'bg-amber-700/75 border-amber-300 text-amber-100'
                         : 'bg-amber-950/45 border-amber-800/60 text-amber-200/90'
@@ -700,20 +720,35 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                 />
                 {party.gems} (+{gemTrackGlory})
               </span>
-              <span className="flex items-center gap-1 opacity-80">
-                {GEM_MILESTONES.map((gm) => (
-                  <span
-                    key={gm.threshold}
-                    title={gm.label}
-                    className={`px-1 rounded text-[8px] border ${
-                      claimedGemMilestones.includes(gm.threshold) || party.gems >= gm.threshold
-                        ? 'bg-emerald-800/75 border-emerald-400 text-emerald-100'
-                        : 'bg-black/40 border-stone-700 text-stone-400'
-                    }`}
-                  >
-                    {gm.threshold}
-                  </span>
-                ))}
+              <span className="flex items-center gap-1 opacity-85">
+                {GEM_MILESTONES.map((gm) => {
+                  const iconSrc =
+                    gm.threshold === 3
+                      ? '/assets/ui/icon-bonus-forge.webp'
+                      : gm.threshold === 6
+                        ? '/assets/ui/icon-bonus-levelup.webp'
+                        : '/assets/ui/icon-potion-slot-full.webp';
+                  return (
+                    <span
+                      key={gm.threshold}
+                      title={gm.label}
+                      className={`px-1 py-0.5 rounded text-[8px] border flex items-center gap-0.5 ${
+                        claimedGemMilestones.includes(gm.threshold) || party.gems >= gm.threshold
+                          ? 'bg-emerald-800/75 border-emerald-400 text-emerald-100'
+                          : 'bg-black/40 border-stone-700 text-stone-400'
+                      }`}
+                    >
+                      <RelicThumb
+                        src={iconSrc}
+                        alt=""
+                        ariaHidden={true}
+                        className="w-3 h-3 object-contain shrink-0"
+                        fallback={null}
+                      />
+                      <span>{gm.threshold}</span>
+                    </span>
+                  );
+                })}
               </span>
             </div>
 

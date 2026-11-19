@@ -1,5 +1,5 @@
-const CACHE_STATIC = 'tiny-dungeon-static-v4';
-const CACHE_PAGES = 'tiny-dungeon-pages-v4';
+const CACHE_STATIC = 'tiny-dungeon-static-v6';
+const CACHE_PAGES = 'tiny-dungeon-pages-v6';
 const PRECACHE_URLS = [
   '/',
   '/index.html',

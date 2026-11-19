@@ -1,27 +1,25 @@
 # Asset Studio — Relatório de Sincronização
 
-> **Data de Sincronização:** 2026-11-18T11:49:13.240Z
-> **Total de Assets:** 16
-> **Assets Validados e Empacotados:** 16
+> **Data de Sincronização:** 2026-11-19T22:41:31.556Z
+> **Total de Assets:** 14
+> **Assets Validados e Empacotados:** 14
 
 | ID | Nome | Categoria | Ratio | Âncora Vinculada | Status | Caminho de Destino |
 |---|---|---|---|---|---|---|
-| hero-warrior | Guerreiro Samurai (Manto Branco) | portraits | 1:1 | global | VALIDADO | `public/assets/portraits/hero-warrior.jpg` |
-| hero-mage | Mago Onmyoji (Manto Preto) | portraits | 1:1 | global | VALIDADO | `public/assets/portraits/hero-mage.jpg` |
-| hero-cleric | Clérigo Sohei (Manto Branco) | portraits | 1:1 | global | VALIDADO | `public/assets/portraits/hero-cleric.jpg` |
-| hero-rogue | Ladino Shinobi (Manto Preto) | portraits | 1:1 | global | VALIDADO | `public/assets/portraits/hero-rogue.jpg` |
-| pawn-party | Peão Tático & Estandarte Sashimono | standees-minions | 3:4 | global | VALIDADO | `public/assets/standees/pawn-party.jpg` |
-| minion-goblin | Goblin Batedor (Lacaio Nv. 1) | standees-minions | 3:4 | global | VALIDADO | `public/assets/standees/minion-goblin.jpg` |
-| minion-skeleton | Esqueleto Ronin (Lacaio Nv. 2) | standees-minions | 3:4 | global | VALIDADO | `public/assets/standees/minion-skeleton.jpg` |
-| minion-orc | Orc / Oni Brutal (Lacaio Nv. 3) | standees-minions | 3:4 | global | VALIDADO | `public/assets/standees/minion-orc.jpg` |
-| minion-troll | Troll da Forja (Lacaio Nv. 4) | standees-minions | 3:4 | global | VALIDADO | `public/assets/standees/minion-troll.jpg` |
-| boss-manticore | Mantícora Quimera (Chefe R1) | standees-bosses | 3:4 | global | VALIDADO | `public/assets/standees/boss-manticore.jpg` |
-| boss-beholder | Observador Yokai (Chefe R2) | standees-bosses | 3:4 | global | VALIDADO | `public/assets/standees/boss-beholder.jpg` |
-| boss-dragon | Dragão Imperador de Brasas (Chefe R3) | standees-bosses | 3:4 | global | VALIDADO | `public/assets/standees/boss-dragon.jpg` |
-| prop-chest-artifact | Cofre de Artefato Dourado | props-relics | 1:1 | ISOLADO | VALIDADO | `public/assets/props/prop-chest-artifact.jpg` |
-| prop-gems-cluster | Aglomerado de Gemas Jade & Esmeralda | props-relics | 1:1 | ISOLADO | VALIDADO | `public/assets/props/prop-gems-cluster.jpg` |
-| prop-trap-spikes | Armadilha Mecânica de Espinhos | props-relics | 1:1 | ISOLADO | VALIDADO | `public/assets/props/prop-trap-spikes.jpg` |
-| prop-potion-flask | Frasco de Elixir Alquímico Carmesim | props-relics | 1:1 | ISOLADO | VALIDADO | `public/assets/props/prop-potion-flask.jpg` |
+| die-white-base | Dado Base Branco: Osso/Marfim em Perspectiva | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-white-base.png` |
+| die-black-base | Dado Base Preto: Obsidiana/Ébano em Perspectiva | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-black-base.png` |
+| die-white-sword | Dado Branco: Espada (Guerreiro) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-white-sword.png` |
+| die-white-shield | Dado Branco: Escudo (Clérigo) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-white-shield.png` |
+| die-white-boot | Dado Branco: Bota/Escada (Movimento) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-white-boot.png` |
+| die-white-magic | Dado Branco: Magia (Mago) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-white-magic.png` |
+| die-white-rogue | Dado Branco: Kunai & Chave (Ladino) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-white-rogue.png` |
+| die-white-skull | Dado Branco: Crânio Oni (Perigo) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-white-skull.png` |
+| die-black-sword | Dado Preto: Espada (Guerreiro) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-black-sword.png` |
+| die-black-shield | Dado Preto: Escudo (Clérigo) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-black-shield.png` |
+| die-black-boot | Dado Preto: Bota/Escada (Movimento) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-black-boot.png` |
+| die-black-magic | Dado Preto: Magia (Mago) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-black-magic.png` |
+| die-black-rogue | Dado Preto: Kunai & Chave (Ladino) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-black-rogue.png` |
+| die-black-skull | Dado Preto: Crânio Oni (Perigo) | dice | 1:1 | anchor-96jfh7j | VALIDADO | `assets/dice/die-black-skull.png` |
 
 ---
 *Gerado via Asset Studio Orchestrator com Catálogo Multi-Âncora.*
