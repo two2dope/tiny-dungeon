@@ -22,6 +22,36 @@ interface HUDProps {
   isLedgerOpen: boolean;
 }
 
+const HeartSprite: React.FC<{ active: boolean }> = ({ active }) => {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return (
+      <Heart
+        className={`w-4 h-4 sm:w-5 sm:h-5 ${
+          active
+            ? 'text-red-500 fill-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]'
+            : 'text-stone-700'
+        }`}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={active ? '/assets/ui/icon-heart-full.webp' : '/assets/ui/icon-heart-empty.webp'}
+      alt=""
+      aria-hidden="true"
+      onError={() => setFailed(true)}
+      className={`w-5 h-5 sm:w-6 sm:h-6 object-contain transition-transform duration-150 ${
+        active
+          ? 'drop-shadow-[0_0_6px_rgba(220,38,38,0.65)] scale-105'
+          : 'opacity-75'
+      }`}
+    />
+  );
+};
+
 export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
   const currentRound = useGameStore((state) => state.currentRound);
   const party = useGameStore((state) => state.party);
@@ -38,6 +68,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
   const confirmRound = useGameStore((state) => state.confirmRound);
 
   const [muted, setMuted] = useState(() => soundEngine.isMuted());
+  const [crestFailed, setCrestFailed] = useState(false);
 
   const actionsRemaining = Math.max(0, 3 - consumedDieIds.length);
   const canDrinkPotion = party.potions > 0 && party.currentHealth < party.maxHealth;
@@ -54,26 +85,37 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
 
   const upcomingBoss = getUpcomingBoss();
   const isSengoku = theme === 'sengoku';
+  const isBossRoundNow = currentRound === 3 || currentRound === 6 || currentRound === 8;
 
   return (
     <header
       className={`w-full flex flex-wrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 ${
         isLedgerOpen ? 'lg:pl-[23rem]' : ''
-      } py-2.5 sm:py-3.5 backdrop-blur-md z-20 pointer-events-auto border-b transition-[padding] duration-200 ${
+      } py-2 sm:py-3 backdrop-blur-md z-20 pointer-events-auto transition-[padding] duration-200 ${
         isSengoku
-          ? 'bg-[#17110d]/90 border-amber-900/40'
-          : 'bg-dungeon-darkest/90 border-dungeon-border/60'
+          ? 'gui-header-bar'
+          : 'bg-dungeon-darkest/90 border-b border-dungeon-border/60'
       }`}
     >
       {/* Left: Title, Map Selector & Round */}
       <div className="flex items-center gap-3 sm:gap-5 flex-wrap">
         <div>
-          <h1 className="font-serif text-base sm:text-xl tracking-widest text-dungeon-gold uppercase font-bold flex items-center gap-1.5 drop-shadow-[0_2px_8px_rgba(212,175,55,0.3)]">
-            <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-dungeon-ember" />
+          <h1 className="font-serif text-base sm:text-xl tracking-widest text-amber-200 uppercase font-bold flex items-center gap-1.5 drop-shadow-[0_2px_6px_rgba(0,0,0,0.85)]">
+            {isSengoku && !crestFailed ? (
+              <img
+                src="/assets/ui/crest-sengoku-mon.webp"
+                alt=""
+                aria-hidden="true"
+                onError={() => setCrestFailed(true)}
+                className="w-6 h-6 object-contain drop-shadow"
+              />
+            ) : (
+              <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
+            )}
             Tiny Dungeon
           </h1>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <MapIcon className="w-3 h-3 text-amber-400/80" />
+            <MapIcon className="w-3 h-3 text-amber-400/90" />
             <select
               aria-label="Selecionar Mapa"
               value={mapId}
@@ -81,7 +123,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
                 soundEngine.play('click');
                 selectMap(Number(e.target.value));
               }}
-              className="bg-stone-900/90 text-[11px] font-mono text-stone-200 border border-stone-700 rounded px-1.5 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
+              className="bg-[#211711] text-[11px] font-mono text-amber-100 border border-amber-800/70 rounded px-1.5 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"
             >
               {CANONICAL_MAPS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -92,37 +134,58 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
           </div>
         </div>
 
-        <div className="flex flex-col border-l border-stone-700/70 pl-3 sm:pl-5 tabular-nums">
+        <div
+          className={`flex flex-col border-l pl-3 sm:pl-5 tabular-nums ${
+            isSengoku ? 'border-amber-900/60' : 'border-slate-700/80'
+          }`}
+        >
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-mono uppercase text-stone-400">Rodada</span>
-            <span className="font-serif text-sm sm:text-lg font-bold text-stone-100">
-              {currentRound} <span className="text-stone-500 text-xs">/ 8</span>
+            <span className={`text-[11px] font-mono uppercase ${isSengoku ? 'text-amber-200/75' : 'text-slate-400'}`}>
+              Rodada
             </span>
-            <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-amber-950/60 border border-amber-700/40 text-amber-300">
+            <span className="font-serif text-sm sm:text-lg font-bold text-amber-100">
+              {currentRound} <span className="text-amber-300/60 text-xs">/ 8</span>
+            </span>
+            <span
+              className={`text-[11px] font-mono px-2 py-0.5 rounded border ${
+                isSengoku
+                  ? 'bg-amber-950/75 border-amber-700/50 text-amber-300'
+                  : 'bg-slate-900/90 border-sky-700/60 text-sky-300'
+              }`}
+            >
               Ações: {actionsRemaining}/3
             </span>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 text-[11px] font-mono text-dungeon-copper">
-            <ShieldAlert className="w-3.5 h-3.5" />
+          <div
+            className={`hidden sm:flex items-center gap-1.5 text-[11px] font-mono ${
+              isBossRoundNow
+                ? 'text-red-300 font-bold motion-safe:animate-pulse'
+                : isSengoku
+                  ? 'text-amber-400/90'
+                  : 'text-sky-300/90'
+            }`}
+          >
+            <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
             <span>
-              {upcomingBoss.name} (R{upcomingBoss.round} • Poder {upcomingBoss.powerT1}/{upcomingBoss.powerT2})
+              {isBossRoundNow
+                ? `⚡ ${upcomingBoss.name} desperta ao confirmar! (Poder ${upcomingBoss.powerT1}/${upcomingBoss.powerT2})`
+                : `${upcomingBoss.name} (R${upcomingBoss.round} • Poder ${upcomingBoss.powerT1}/${upcomingBoss.powerT2})`}
             </span>
           </div>
         </div>
       </div>
 
       {/* Center: Party Vitality + Free Potion button */}
-      <div className="flex items-center gap-2 sm:gap-3 bg-stone-900/85 border border-stone-700/70 px-3 py-1.5 rounded-xl tabular-nums">
+      <div
+        className={`flex items-center gap-2 sm:gap-3 px-3 py-1 rounded-xl tabular-nums shadow-inner border ${
+          isSengoku
+            ? 'bg-[#1c130e]/90 border-amber-800/60'
+            : 'bg-slate-950/90 border-slate-700/80'
+        }`}
+      >
         <div className="flex items-center gap-1" aria-label={`Vida ${party.currentHealth} de ${party.maxHealth}`}>
           {Array.from({ length: party.maxHealth }).map((_, idx) => (
-            <Heart
-              key={idx}
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${
-                idx < party.currentHealth
-                  ? 'text-red-500 fill-red-500 drop-shadow-[0_0_6px_rgba(239,68,68,0.5)]'
-                  : 'text-stone-700'
-              }`}
-            />
+            <HeartSprite key={idx} active={idx < party.currentHealth} />
           ))}
         </div>
 
@@ -133,10 +196,19 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
               soundEngine.play('potion');
               stageUsePotion();
             }}
-            className="touch-target flex items-center gap-1 px-2 py-1 rounded bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/50 text-emerald-300 text-[11px] font-mono"
+            className="touch-target flex items-center gap-1 px-2 py-1 rounded bg-emerald-950/85 hover:bg-emerald-900 border border-emerald-500/60 text-emerald-200 text-[11px] font-mono"
             title="Usar Poção sem gastar dado (+2 Vida)"
           >
-            <FlaskConical className="w-3.5 h-3.5" />
+            <img
+              src="/assets/ui/icon-potion-gourd.webp"
+              alt=""
+              aria-hidden="true"
+              className="w-4 h-4 object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+            <FlaskConical className="w-3 h-3 hidden" />
             <span>+2 ({party.potions})</span>
           </button>
         )}
@@ -158,7 +230,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
           }}
           title="Alternar tema visual (Sengoku & Nanquim / Vesperfall)"
           aria-label="Alternar tema visual"
-          className="touch-target flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-mono border bg-stone-900/90 border-stone-700 text-amber-300 hover:border-amber-500/60"
+          className="touch-target gui-btn-gold flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold"
         >
           <Palette className="w-4 h-4" />
           <span className="hidden md:inline">{isSengoku ? 'Sengoku' : 'Vesperfall'}</span>
@@ -169,7 +241,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
           onClick={() => setMuted(soundEngine.toggleMute())}
           aria-label={muted ? 'Ativar áudio' : 'Silenciar áudio'}
           title={muted ? 'Ativar áudio' : 'Silenciar áudio'}
-          className="touch-target p-2 rounded-lg bg-stone-900/90 border border-stone-700 text-stone-300 hover:border-stone-500"
+          className="touch-target gui-btn-square p-2 rounded-lg"
         >
           {muted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
         </button>
@@ -181,10 +253,8 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
             onToggleLedger();
           }}
           aria-label="Abrir ou fechar Grimório"
-          className={`touch-target flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-mono border transition-all ${
-            isLedgerOpen
-              ? 'bg-dungeon-gold text-black border-dungeon-gold font-semibold'
-              : 'bg-stone-900/90 border-stone-700 text-stone-200 hover:border-dungeon-copper'
+          className={`touch-target gui-btn-gold flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-semibold ${
+            isLedgerOpen ? 'ring-2 ring-amber-300' : ''
           }`}
         >
           <BookOpen className="w-4 h-4" />
@@ -200,7 +270,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
           disabled={history.length === 0}
           aria-label="Desfazer Ação"
           title="Desfazer (Z)"
-          className="touch-target p-2 rounded-lg bg-stone-900/90 border border-stone-700 text-stone-300 hover:border-stone-500 disabled:opacity-30 disabled:pointer-events-none"
+          className="touch-target gui-btn-square p-2 rounded-lg disabled:opacity-30 disabled:pointer-events-none"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
@@ -214,7 +284,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
           disabled={future.length === 0}
           aria-label="Refazer Ação"
           title="Refazer (Y)"
-          className="touch-target p-2 rounded-lg bg-stone-900/90 border border-stone-700 text-stone-300 hover:border-stone-500 disabled:opacity-30 disabled:pointer-events-none"
+          className="touch-target gui-btn-square p-2 rounded-lg disabled:opacity-30 disabled:pointer-events-none"
         >
           <RotateCw className="w-4 h-4" />
         </button>
@@ -223,14 +293,18 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
           type="button"
           onClick={() => {
             soundEngine.play('roll');
-            confirmRound();
+            confirmRound({ interactive: true });
           }}
-          className="touch-target flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-amber-700 via-amber-600 to-amber-700 text-stone-100 font-serif font-semibold text-xs tracking-wider uppercase rounded-lg border border-amber-400/50 shadow-[0_0_15px_rgba(217,119,6,0.3)] hover:brightness-110 active:scale-95 transition-all"
+          className={`touch-target gui-btn-crimson flex items-center gap-1.5 px-3.5 sm:px-5 py-1.5 sm:py-2 font-serif font-bold text-xs tracking-wider uppercase rounded-lg shadow-lg ${
+            actionsRemaining === 0
+              ? 'ring-2 ring-amber-300/80 shadow-[0_0_16px_rgba(251,191,36,0.45)]'
+              : ''
+          }`}
         >
           {isSengoku && (
             <span
               aria-hidden="true"
-              className="w-4 h-4 rounded-sm bg-red-700 border border-red-300/70 text-[10px] leading-none font-serif font-bold text-amber-100 flex items-center justify-center shadow-inner"
+              className="w-4 h-4 rounded-sm bg-red-900 border border-amber-300/70 text-[10px] leading-none font-serif font-bold text-amber-100 flex items-center justify-center shadow-inner"
             >
               印
             </span>

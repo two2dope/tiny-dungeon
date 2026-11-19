@@ -1,11 +1,18 @@
-const CACHE_STATIC = 'tiny-dungeon-static-v1';
-const CACHE_PAGES = 'tiny-dungeon-pages-v1';
+const CACHE_STATIC = 'tiny-dungeon-static-v3';
+const CACHE_PAGES = 'tiny-dungeon-pages-v3';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/manifest.webmanifest',
   '/icons/app-192.png',
   '/icons/app-512.png',
+  '/models/torii-gate.glb',
+  '/models/lantern-pedestal.glb',
+  '/assets/ui/panel-sidebar-frame.webp',
+  '/assets/ui/tray-dice-wooden.webp',
+  '/assets/ui/scroll-combat-log.webp',
+  '/assets/ui/btn-crimson.webp',
+  '/assets/ui/btn-gold.webp',
 ];
 
 self.addEventListener('install', (event) => {
@@ -48,9 +55,21 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // CacheFirst for versioned static assets and icons
+  // CacheFirst for versioned static assets, WebP sprites, and 3D .glb models
   const dest = request.destination;
-  if (['script', 'style', 'image', 'font'].includes(dest)) {
+  let pathname = '';
+  try {
+    pathname = new URL(request.url).pathname;
+  } catch {
+    pathname = '';
+  }
+
+  const isStaticAsset =
+    ['script', 'style', 'image', 'font'].includes(dest) ||
+    pathname.endsWith('.glb') ||
+    pathname.endsWith('.webp');
+
+  if (isStaticAsset) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) return cached;

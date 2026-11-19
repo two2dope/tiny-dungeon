@@ -1,4 +1,5 @@
 import { HeroParty, Minion, Villain } from './types';
+import { getRelicCount } from './relics';
 
 export interface MinionCombatOutcome {
   woundsTaken: number;
@@ -13,24 +14,31 @@ export interface VillainCombatOutcome {
   partyPower: number;
 }
 
+export interface CombatPowerBreakdown {
+  heroLevels: number;
+  katanaBonus: number;
+  sealBonus: number;
+  partyPower: number;
+  bossPower: number;
+}
+
+export function getRelevantHeroLevel(party: HeroParty, minion: Minion): number {
+  if (minion.classAffinity) {
+    return party.heroes[minion.classAffinity].level;
+  }
+  return Math.max(
+    party.heroes.warrior.level,
+    party.heroes.mage.level,
+    party.heroes.cleric.level,
+    party.heroes.rogue.level
+  );
+}
+
 export function resolveMinionEncounter(
   party: HeroParty,
   minion: Minion
 ): MinionCombatOutcome {
-  let relevantLevel: number;
-
-  if (minion.classAffinity) {
-    relevantLevel = party.heroes[minion.classAffinity].level;
-  } else {
-    // If no specific class affinity, default to highest hero level
-    relevantLevel = Math.max(
-      party.heroes.warrior.level,
-      party.heroes.mage.level,
-      party.heroes.cleric.level,
-      party.heroes.rogue.level
-    );
-  }
-
+  const relevantLevel = getRelevantHeroLevel(party, minion);
   const woundsTaken = relevantLevel < minion.reqLevel ? minion.damage : 0;
 
   return {
@@ -40,21 +48,39 @@ export function resolveMinionEncounter(
   };
 }
 
-export function calculatePartyPower(party: HeroParty): number {
-  const heroLevelsSum =
+export function getCombatPowerBreakdown(party: HeroParty): CombatPowerBreakdown {
+  const heroLevels =
     party.heroes.warrior.level +
     party.heroes.mage.level +
     party.heroes.cleric.level +
     party.heroes.rogue.level;
+  const katanaBonus = getRelicCount(party, 'katana-masamune');
+  const sealBonus = getRelicCount(party, 'selo-onmyo');
+  const partyPower = heroLevels + katanaBonus;
+  const bossPower = partyPower + sealBonus;
 
-  return heroLevelsSum;
+  return {
+    heroLevels,
+    katanaBonus,
+    sealBonus,
+    partyPower,
+    bossPower,
+  };
+}
+
+export function calculatePartyPower(party: HeroParty): number {
+  return getCombatPowerBreakdown(party).partyPower;
+}
+
+export function calculateBossPower(party: HeroParty): number {
+  return getCombatPowerBreakdown(party).bossPower;
 }
 
 export function resolveVillainBattle(
   party: HeroParty,
   villain: Villain
 ): VillainCombatOutcome {
-  const partyPower = calculatePartyPower(party);
+  const partyPower = calculateBossPower(party);
 
   if (partyPower >= villain.tier1Power) {
     return {

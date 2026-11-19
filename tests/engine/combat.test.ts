@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { resolveMinionEncounter, resolveVillainBattle } from '../../src/engine/combat';
-import { createInitialParty, levelUpHero } from '../../src/engine/heroes';
+import {
+  calculateBossPower,
+  calculatePartyPower,
+  getCombatPowerBreakdown,
+  getRelevantHeroLevel,
+  resolveMinionEncounter,
+  resolveVillainBattle,
+} from '../../src/engine/combat';
+import { craftItem, createInitialParty, levelUpHero } from '../../src/engine/heroes';
 import { Minion, Villain } from '../../src/engine/types';
 
 describe('Combat System', () => {
@@ -62,5 +69,45 @@ describe('Combat System', () => {
     expect(outcome.tier).toBe('defeat');
     expect(outcome.gloryEarned).toBe(0);
     expect(outcome.woundsTaken).toBe(4);
+  });
+
+  it('adds +1 party power from katana-masamune and +1 boss power from selo-onmyo', () => {
+    let party = createInitialParty(); // base 4
+    expect(calculatePartyPower(party)).toBe(4);
+
+    party = craftItem(party, 'katana-masamune');
+    expect(calculatePartyPower(party)).toBe(5);
+    expect(calculateBossPower(party)).toBe(5);
+
+    party = craftItem(party, 'selo-onmyo');
+    expect(calculatePartyPower(party)).toBe(5);
+    expect(calculateBossPower(party)).toBe(6);
+
+    const manticore: Villain = {
+      id: 'v_manticore',
+      name: 'Manticora',
+      round: 3,
+      tier1Power: 6,
+      tier1Glory: 8,
+      tier2Power: 4,
+      tier2Glory: 4,
+      defeatDamage: 2,
+    };
+
+    const outcome = resolveVillainBattle(party, manticore);
+    expect(outcome.partyPower).toBe(6);
+    expect(outcome.tier).toBe(1);
+    expect(outcome.gloryEarned).toBe(8);
+
+    const breakdown = getCombatPowerBreakdown(party);
+    expect(breakdown).toEqual({
+      heroLevels: 4,
+      katanaBonus: 1,
+      sealBonus: 1,
+      partyPower: 5,
+      bossPower: 6,
+    });
+    expect(getRelevantHeroLevel(levelUpHero(party, 'rogue'), { id: 'm', name: 'M', reqLevel: 2, glory: 2, damage: 1 })).toBe(2);
+    expect(getRelevantHeroLevel(levelUpHero(party, 'rogue'), { id: 'm', name: 'M', reqLevel: 2, glory: 2, damage: 1, classAffinity: 'warrior' })).toBe(1);
   });
 });

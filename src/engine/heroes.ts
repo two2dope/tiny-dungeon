@@ -1,4 +1,5 @@
-import { DieColor, DieSymbol, HeroClass, HeroParty, HeroState } from './types';
+import { DieColor, DieSymbol, HeroClass, HeroParty, HeroState, RelicId } from './types';
+import { getNextRelicToCraft } from './relics';
 
 export const MAX_HERO_LEVEL = 6;
 export const DEFAULT_MAX_HEALTH = 6;
@@ -38,6 +39,7 @@ export function createInitialParty(): HeroParty {
     potions: 0,
     magicItems: 0,
     gems: 0,
+    craftedRelics: [],
   };
 }
 
@@ -104,10 +106,22 @@ export function usePotion(party: HeroParty): HeroParty {
   };
 }
 
-export function craftItem(party: HeroParty): HeroParty {
+export function craftItem(party: HeroParty, relicId?: RelicId): HeroParty {
+  const existingRelics = party.craftedRelics ?? [];
+  const chosenId = relicId ?? getNextRelicToCraft(existingRelics);
+  const nextMaxHealth =
+    chosenId === 'armadura-yoroi' ? party.maxHealth + 1 : party.maxHealth;
+  const nextCurrentHealth =
+    chosenId === 'armadura-yoroi'
+      ? Math.min(nextMaxHealth, party.currentHealth + 1)
+      : party.currentHealth;
+
   return {
     ...party,
     magicItems: party.magicItems + 1,
+    maxHealth: nextMaxHealth,
+    currentHealth: nextCurrentHealth,
+    craftedRelics: [...existingRelics, chosenId],
   };
 }
 

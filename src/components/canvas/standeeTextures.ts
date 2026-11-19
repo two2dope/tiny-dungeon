@@ -1,46 +1,16 @@
 import * as THREE from 'three';
 import { ThemeId } from '../../engine/types';
+import {
+  resolveVillainStandeeKind,
+  STANDEE_ASSET_URLS,
+  STANDEE_KINDS,
+  StandeeKind,
+} from '../../engine/standeeManifest';
 
-export type StandeeKind =
-  | 'goblin'
-  | 'skeleton'
-  | 'orc'
-  | 'troll'
-  | 'manticore'
-  | 'beholder'
-  | 'dragon'
-  | 'gem'
-  | 'item'
-  | 'trap'
-  | 'party';
+export { STANDEE_KINDS, STANDEE_ASSET_URLS, resolveVillainStandeeKind };
+export type { StandeeKind };
 
-export const STANDEE_KINDS: readonly StandeeKind[] = [
-  'goblin',
-  'skeleton',
-  'orc',
-  'troll',
-  'manticore',
-  'beholder',
-  'dragon',
-  'gem',
-  'item',
-  'trap',
-  'party',
-] as const;
-
-export const STANDEE_ASSET_URLS: Record<StandeeKind, string> = {
-  goblin: '/assets/standees/minion-goblin.jpg',
-  skeleton: '/assets/standees/minion-skeleton.jpg',
-  orc: '/assets/standees/minion-orc.jpg',
-  troll: '/assets/standees/minion-troll.jpg',
-  manticore: '/assets/standees/boss-manticore.jpg',
-  beholder: '/assets/standees/boss-beholder.jpg',
-  dragon: '/assets/standees/boss-dragon.jpg',
-  party: '/assets/standees/pawn-party.jpg',
-  gem: '/assets/props/prop-gems-cluster.jpg',
-  item: '/assets/props/prop-chest-artifact.jpg',
-  trap: '/assets/props/prop-trap-spikes.jpg',
-};
+export type StandeeVisualState = 'normal' | 'dormant' | 'defeated' | 'victorious';
 
 const standeeCache = new Map<string, THREE.CanvasTexture>();
 
@@ -151,6 +121,42 @@ export function removeDarkStudioBackdrop(
     const spread = Math.max(data[off], data[off + 1], data[off + 2]) - Math.min(data[off], data[off + 1], data[off + 2]);
     if (lum < featherCutoff && spread < 40) {
       data[off + 3] = Math.min(data[off + 3], 90);
+    }
+  }
+}
+
+export function applyStandeeVisualState(
+  imageData: PixelSurfaceLike,
+  visualState: StandeeVisualState
+): void {
+  if (visualState === 'normal') return;
+  const { data, width, height } = imageData;
+  const total = width * height;
+
+  for (let i = 0; i < total; i++) {
+    const off = i * 4;
+    const a = data[off + 3];
+    if (a === 0) continue;
+
+    const r = data[off];
+    const g = data[off + 1];
+    const b = data[off + 2];
+
+    if (visualState === 'dormant') {
+      const lum = Math.round((0.299 * r + 0.587 * g + 0.114 * b) * 0.78);
+      data[off] = lum;
+      data[off + 1] = lum;
+      data[off + 2] = Math.min(255, Math.round(lum * 1.03));
+    } else if (visualState === 'defeated') {
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      data[off] = Math.round((r * 0.35 + lum * 0.65) * 0.86);
+      data[off + 1] = Math.round((g * 0.35 + lum * 0.65) * 0.84);
+      data[off + 2] = Math.round((b * 0.35 + lum * 0.65) * 0.8);
+      data[off + 3] = Math.round(a * 0.72);
+    } else if (visualState === 'victorious') {
+      data[off] = Math.min(255, Math.round(r * 1.12));
+      data[off + 1] = Math.round(g * 0.88);
+      data[off + 2] = Math.round(b * 0.88);
     }
   }
 }
@@ -818,7 +824,8 @@ function hydrateStandeeFromFlowAsset(
   tex: THREE.CanvasTexture,
   kind: StandeeKind,
   theme: ThemeId,
-  assetUrl: string
+  assetUrl: string,
+  visualState: StandeeVisualState
 ): void {
   if (typeof Image === 'undefined') return;
   try {
@@ -840,19 +847,13 @@ function hydrateStandeeFromFlowAsset(
             ctx.fillStyle = '#141210';
             ctx.fillRect(42, 90, 172, 172);
 
-            const baseScale = Math.max(164 / natW, 164 / natH) * 1.22;
+            const baseScale = Math.min(158 / natW, 158 / natH);
             const drawW = Math.max(1, Math.round(natW * baseScale));
             const drawH = Math.max(1, Math.round(natH * baseScale));
             const dx = Math.round(128 - drawW / 2);
             const dy = Math.round(176 - drawH / 2);
 
-            if (kind === 'trap' && 'filter' in ctx) {
-              ctx.filter = 'brightness(1.55) contrast(1.25) saturate(1.2)';
-            }
             ctx.drawImage(img, dx, dy, drawW, drawH);
-            if ('filter' in ctx) {
-              ctx.filter = 'none';
-            }
           });
         } else {
           const pad = 4;
@@ -869,6 +870,7 @@ function hydrateStandeeFromFlowAsset(
 
           const imageData = ctx.getImageData(0, 0, w, h);
           removeDarkStudioBackdrop(imageData, 128);
+          applyStandeeVisualState(imageData, visualState);
           ctx.putImageData(imageData, 0, 0);
         }
 
@@ -885,9 +887,10 @@ function hydrateStandeeFromFlowAsset(
 
 export function getStandeeTexture(
   kind: StandeeKind,
-  theme: ThemeId = 'sengoku'
+  theme: ThemeId = 'sengoku',
+  visualState: StandeeVisualState = 'normal'
 ): THREE.CanvasTexture | null {
-  const key = `v3:${theme}:${kind}`;
+  const key = `v4:${theme}:${kind}:${visualState}`;
   const cached = standeeCache.get(key);
   if (cached) return cached;
 
@@ -956,11 +959,33 @@ export function getStandeeTexture(
     ctx.strokeRect(42, 284, 172, 18);
   }
 
+  if (
+    visualState !== 'normal' &&
+    typeof ctx.getImageData === 'function' &&
+    typeof ctx.putImageData === 'function'
+  ) {
+    try {
+      const fallbackPixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      applyStandeeVisualState(fallbackPixels, visualState);
+      ctx.putImageData(fallbackPixels, 0, 0);
+    } catch {
+      // Ignore if mocked test canvas context omits pixel readback
+    }
+  }
+
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.needsUpdate = true;
   standeeCache.set(key, tex);
 
-  hydrateStandeeFromFlowAsset(canvas, ctx, tex, kind, theme, STANDEE_ASSET_URLS[kind]);
+  hydrateStandeeFromFlowAsset(
+    canvas,
+    ctx,
+    tex,
+    kind,
+    theme,
+    STANDEE_ASSET_URLS[kind],
+    visualState
+  );
   return tex;
 }

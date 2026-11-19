@@ -1,0 +1,202 @@
+/* =========================================================================
+ * Sengoku Illustrated GUI Skin — Real 2D Sprites + Crisp Tactile Typography
+ * ========================================================================= */
+
+.gui-sidebar-panel {
+  background-color: #18120e;
+  border-style: solid;
+  border-width: 20px;
+  border-color: #3a2718;
+  border-image-source: url('/assets/ui/panel-sidebar-frame.webp');
+  border-image-slice: 17% fill;
+  border-image-repeat: stretch;
+  box-shadow: 6px 0 28px rgba(0, 0, 0, 0.72);
+}
+
+.gui-header-bar {
+  background: linear-gradient(180deg, #211712 0%, #150f0c 72%, #110c09 100%);
+  border-bottom: 2px solid #b9893d;
+  box-shadow:
+    inset 0 -1px 0 rgba(253, 224, 140, 0.28),
+    0 6px 20px rgba(0, 0, 0, 0.65);
+}
+
+.gui-title-banner {
+  background-image:
+    radial-gradient(ellipse 46% 65% at 50% 54%, rgba(20, 13, 9, 0.78) 0%, rgba(20, 13, 9, 0) 100%),
+    url('/assets/ui/header-title-banner.webp');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.gui-btn-crimson {
+  background-color: #7c1f1b;
+  background-image: url('/assets/ui/btn-crimson.webp');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #f8e8c8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(245, 194, 102, 0.35);
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.gui-btn-crimson:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.gui-btn-crimson:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.gui-btn-gold {
+  background-color: #3b2a19;
+  background-image: url('/assets/ui/btn-gold.webp');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #f7ead0;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.92);
+  border: 1px solid rgba(245, 194, 102, 0.4);
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.gui-btn-gold:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.gui-btn-gold:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.gui-btn-square {
+  background-color: #292421;
+  background-image: url('/assets/ui/btn-square.webp');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #f4e8d2;
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.gui-btn-square:hover:not(:disabled) {
+  filter: brightness(1.16);
+}
+
+.gui-btn-square:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+[data-theme="vesperfall"] .gui-btn-crimson {
+  background-color: #6b1128;
+  background-image: linear-gradient(180deg, #9f1239 0%, #6b1128 100%);
+  color: #ffe4e6;
+  border: 1px solid rgba(251, 113, 133, 0.45);
+}
+
+[data-theme="vesperfall"] .gui-btn-gold {
+  background-color: #1e293b;
+  background-image: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  color: #e2e8f0;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+[data-theme="vesperfall"] .gui-btn-square {
+  background-color: #1e293b;
+  background-image: none;
+  color: #e2e8f0;
+  border: 1px solid rgba(100, 116, 139, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gui-btn-crimson,
+  .gui-btn-gold,
+  .gui-btn-square,
+  .gui-parchment-btn {
+    transition: none;
+  }
+}
+
+.gui-parchment-card {
+  background: linear-gradient(180deg, #ecd8b2 0%, #dcc190 100%);
+  color: #24160d;
+  border: 2px solid #593b22;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 235, 0.6),
+    0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+.gui-parchment-btn {
+  background: linear-gradient(180deg, #b8986b 0%, #8c6a3e 100%);
+  color: #1b1008;
+  border: 1.5px solid #4a311a;
+  box-shadow: inset 0 1px 0 rgba(255, 244, 214, 0.45);
+  transition: transform 0.14s ease, filter 0.14s ease;
+}
+
+.gui-parchment-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.gui-mission-banner {
+  background-color: #dcc291;
+  background-image: url('/assets/ui/banner-mission-parchment.webp');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  color: #24160d;
+}
+
+.gui-scroll-log {
+  background-color: transparent;
+  border-style: solid;
+  border-width: 22px 26px 18px 26px;
+  border-color: transparent;
+  border-image-source: url('/assets/ui/scroll-combat-log.webp');
+  border-image-slice: 52 52 42 52 fill;
+  border-image-repeat: stretch;
+  color: #22160d;
+}
+
+.gui-dice-tray {
+  background: linear-gradient(180deg, #271812 0%, #190f0b 100%);
+  border: 2px solid #8a6232;
+  box-shadow:
+    inset 0 1px 0 rgba(251, 191, 36, 0.28),
+    0 12px 30px rgba(0, 0, 0, 0.75);
+}
+
+.gui-dice-tray-slots {
+  background-image: url('/assets/ui/tray-dice-wooden.webp');
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.gui-hero-card {
+  border: 1.5px solid #826138;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 232, 185, 0.16),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.45);
+}
+
+.gui-hero-warrior {
+  background: linear-gradient(135deg, #4b1d17 0%, #2a0f0c 100%);
+  border-color: #a1523a;
+}
+
+.gui-hero-mage {
+  background: linear-gradient(135deg, #2f1d47 0%, #190f28 100%);
+  border-color: #7c56a8;
+}
+
+.gui-hero-cleric {
+  background: linear-gradient(135deg, #163342 0%, #0d1e28 100%);
+  border-color: #4d859c;
+}
+
+.gui-hero-rogue {
+  background: linear-gradient(135deg, #32281a 0%, #1c160e 100%);
+  border-color: #8f7443;
+}
+
+.gui-vesperfall-card {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-color: #475569;
+}

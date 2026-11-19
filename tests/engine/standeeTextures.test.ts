@@ -27,7 +27,7 @@ describe('standeeTextures', () => {
     ]);
 
     for (const kind of STANDEE_KINDS) {
-      expect(STANDEE_ASSET_URLS[kind]).toMatch(/^\/assets\/(standees|props)\/.*\.jpg$/);
+      expect(STANDEE_ASSET_URLS[kind]).toMatch(/^\/assets\/(standees|props|ui)\/.*\.(jpg|webp)$/);
     }
   });
 
@@ -161,5 +161,10 @@ describe('standeeTextures', () => {
       expect(texA).not.toBeNull();
       expect(texB).toBe(texA);
     }
+
+    const dormantTex = getStandeeTexture('manticore', 'sengoku', 'dormant');
+    const normalTex = getStandeeTexture('manticore', 'sengoku', 'normal');
+    expect(dormantTex).not.toBeNull();
+    expect(dormantTex).not.toBe(normalTex);
   });
 });

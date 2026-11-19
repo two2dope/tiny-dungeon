@@ -4,6 +4,7 @@ import { HUD } from './components/ui/HUD';
 import { EmberLedger } from './components/ui/EmberLedger';
 import { DiceTray } from './components/ui/DiceTray';
 import { CombatLog } from './components/ui/CombatLog';
+import { BossDuelModal } from './components/ui/BossDuelModal';
 import { EndGameModal } from './components/ui/EndGameModal';
 import { useGameStore } from './store/gameStore';
 import { soundEngine } from './audio/soundEngine';
@@ -20,6 +21,7 @@ export default function App() {
 
   const theme = useGameStore((state) => state.theme);
   const lastEventFeedback = useGameStore((state) => state.lastEventFeedback);
+  const pendingBossEncounter = useGameStore((state) => state.pendingBossEncounter);
   const undo = useGameStore((state) => state.undo);
   const redo = useGameStore((state) => state.redo);
   const confirmRound = useGameStore((state) => state.confirmRound);
@@ -95,28 +97,37 @@ export default function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onKeyDown = (e: KeyboardEvent) => {
+      if (pendingBossEncounter) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if (
+        tag === 'INPUT' ||
+        tag === 'SELECT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'BUTTON' ||
+        tag === 'A'
+      ) {
+        return;
+      }
       if (e.key.toLowerCase() === 'z') undo();
       else if (e.key.toLowerCase() === 'y') redo();
       else if (e.key === 'Enter' || e.key === ' ') {
         e.preventDefault();
-        confirmRound();
+        confirmRound({ interactive: true });
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undo, redo, confirmRound]);
+  }, [undo, redo, confirmRound, pendingBossEncounter]);
 
   return (
     <main
       data-theme={theme}
       className={`w-full min-h-screen min-h-[100dvh] h-[100dvh] overflow-hidden relative select-none flex flex-col justify-between pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] ${
-        theme === 'sengoku' ? 'bg-[#292019]' : 'bg-[#182030]'
+        theme === 'sengoku' ? 'bg-[#141822]' : 'bg-[#182030]'
       } ${shake ? 'animate-shake' : ''}`}
     >
       <div className="absolute inset-0 z-0">
-        <DungeonCanvas />
+        <DungeonCanvas isLedgerOpen={isLedgerOpen} />
       </div>
       <div
         aria-hidden="true"
@@ -136,7 +147,9 @@ export default function App() {
       {lastEventFeedback && (
         <div
           aria-live="polite"
-          className={`pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1 rounded-full text-xs font-mono border shadow-lg backdrop-blur-md ${
+          className={`pointer-events-none fixed top-[6.75rem] left-1/2 ${
+            isLedgerOpen ? 'lg:left-[calc(50%+11rem)]' : ''
+          } -translate-x-1/2 z-30 px-3.5 py-1 rounded-full text-xs font-mono border shadow-lg backdrop-blur-md transition-[left] duration-200 ${
             lastEventFeedback.tone === 'damage'
               ? 'bg-red-950/90 border-red-500/60 text-red-200'
               : lastEventFeedback.tone === 'glory'
@@ -155,7 +168,13 @@ export default function App() {
           isLedgerOpen ? 'lg:pl-[23rem]' : ''
         } pb-3 sm:pb-5 z-20 pointer-events-none transition-[padding] duration-200`}
       >
-        <div className="hidden lg:block pointer-events-auto bg-stone-950/80 backdrop-blur-sm border border-stone-700/70 px-3 py-2 rounded-lg text-[11px] font-mono text-stone-400">
+        <div
+          className={`hidden lg:block pointer-events-auto backdrop-blur-sm border px-3 py-2 rounded-lg text-[11px] font-mono ${
+            theme === 'sengoku'
+              ? 'bg-[#1a120d]/90 border-amber-800/60 text-amber-200/80'
+              : 'bg-stone-950/80 border-stone-700/70 text-stone-400'
+          }`}
+        >
           Clique nas lajes iluminadas para mover • Selecione até 3 dados
         </div>
 
@@ -168,6 +187,7 @@ export default function App() {
         </div>
       </footer>
 
+      <BossDuelModal />
       <EndGameModal />
     </main>
   );

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import {
+  BossOutcome,
   DicePool,
   DieColor,
   DieSymbol,
@@ -9,8 +10,11 @@ import {
   HeroClass,
   HeroParty,
   MissionCard,
+  RelicId,
   ThemeId,
+  Villain,
 } from '../engine/types';
+import { getNextRelicToCraft, getRelicById, getRelicCount } from '../engine/relics';
 import { rollDicePool, checkHazardPhase, draftDie, undraftDie } from '../engine/dice';
 import {
   createInitialParty,
@@ -54,6 +58,7 @@ export interface GameSnapshot {
   minionsGlory: number;
   bossGlory: number;
   bossesDefeated: string[];
+  bossOutcomes: Record<string, BossOutcome>;
   masteryGlory: number;
   artisanCount: number;
   missions: MissionCard[];
@@ -75,6 +80,8 @@ export interface GameState {
   minionsGlory: number;
   bossGlory: number;
   bossesDefeated: string[];
+  bossOutcomes: Record<string, BossOutcome>;
+  pendingBossEncounter: Villain | null;
   masteryGlory: number;
   artisanCount: number;
   missions: MissionCard[];
@@ -96,7 +103,9 @@ export interface GameState {
   stageCraftItem: () => void;
   undo: () => void;
   redo: () => void;
-  confirmRound: () => void;
+  confirmRound: (options?: { interactive?: boolean }) => void;
+  resolvePendingBoss: (choice: 'fight' | 'flee') => void;
+  cancelPendingBoss: () => void;
 }
 
 const STORAGE_KEY = 'tiny_dungeon_save_v2';
@@ -139,6 +148,7 @@ function saveToLocalStorage(state: Partial<GameState>) {
       minionsGlory: state.minionsGlory,
       bossGlory: state.bossGlory,
       bossesDefeated: state.bossesDefeated,
+      bossOutcomes: state.bossOutcomes,
       masteryGlory: state.masteryGlory,
       artisanCount: state.artisanCount,
       missions: state.missions,
@@ -148,6 +158,21 @@ function saveToLocalStorage(state: Partial<GameState>) {
   } catch (e) {
     console.error('Falha ao salvar progresso local', e);
   }
+}
+
+export function migrateSavedParty(party: HeroParty): HeroParty {
+  if (Array.isArray(party.craftedRelics)) {
+    return party;
+  }
+  const backfilled: RelicId[] = [];
+  const count = Math.max(0, party.magicItems ?? 0);
+  while (backfilled.length < count) {
+    backfilled.push(getNextRelicToCraft(backfilled));
+  }
+  return {
+    ...party,
+    craftedRelics: backfilled,
+  };
 }
 
 function loadFromLocalStorage(): Partial<GameState> | null {
@@ -161,6 +186,9 @@ function loadFromLocalStorage(): Partial<GameState> | null {
     if (!parsed || !parsed.dungeon || !parsed.party || !parsed.dicePool) return null;
     return {
       ...parsed,
+      party: migrateSavedParty(parsed.party as HeroParty),
+      bossOutcomes: parsed.bossOutcomes ?? {},
+      pendingBossEncounter: null,
       dungeon: {
         ...parsed.dungeon,
         walls: rehydrateWalls(parsed.dungeon.walls || []),
@@ -169,6 +197,14 @@ function loadFromLocalStorage(): Partial<GameState> | null {
   } catch {
     return null;
   }
+}
+
+function forgeNextRelic(party: HeroParty, masteryGlory: number) {
+  const relicId = getNextRelicToCraft(party.craftedRelics ?? []);
+  const nextParty = craftItem(party, relicId);
+  const relic = getRelicById(relicId);
+  const nextMasteryGlory = masteryGlory + (relicId === 'espelho-yata' ? 1 : 0);
+  return { nextParty, relic, nextMasteryGlory };
 }
 
 function buildFreshRun(seed: number, mapId: number, theme: ThemeId) {
@@ -199,6 +235,8 @@ function buildFreshRun(seed: number, mapId: number, theme: ThemeId) {
     minionsGlory: 0,
     bossGlory: 0,
     bossesDefeated: [] as string[],
+    bossOutcomes: {} as Record<string, BossOutcome>,
+    pendingBossEncounter: null as Villain | null,
     masteryGlory: 0,
     artisanCount: 0,
     missions: createInitialMissions(),
@@ -328,10 +366,155 @@ export const useGameStore = create<GameState>((set, get) => {
     minionsGlory: state.minionsGlory,
     bossGlory: state.bossGlory,
     bossesDefeated: [...state.bossesDefeated],
+    bossOutcomes: { ...state.bossOutcomes },
     masteryGlory: state.masteryGlory,
     artisanCount: state.artisanCount,
     missions: JSON.parse(JSON.stringify(state.missions)),
   });
+
+  const applyBossCombatOutcome = (params: {
+    party: HeroParty;
+    villain: Villain;
+    bossGlory: number;
+    bossesDefeated: string[];
+    bossOutcomes: Record<string, BossOutcome>;
+    logs: string[];
+  }): {
+    party: HeroParty;
+    bossGlory: number;
+    bossesDefeated: string[];
+    bossOutcomes: Record<string, BossOutcome>;
+    feedback: EventFeedback;
+  } => {
+    const { party, villain, logs } = params;
+    let nextParty = party;
+    let nextBossGlory = params.bossGlory;
+    const nextBossesDefeated = [...params.bossesDefeated];
+    const nextBossOutcomes = { ...params.bossOutcomes };
+
+    const outcome = resolveVillainBattle(nextParty, villain);
+    logs.push(`Confronto contra o Chefe ${villain.name}! (Poder do Grupo: ${outcome.partyPower})`);
+
+    let feedback: EventFeedback;
+    if (outcome.tier === 1) {
+      logs.push(`Vitória Heroica (Nível 1)! +${outcome.gloryEarned} pontos de glória!`);
+      nextBossGlory += outcome.gloryEarned;
+      nextBossesDefeated.push(villain.name);
+      nextBossOutcomes[villain.id] = 'defeated';
+      feedback = makeFeedback(`${villain.name} derrotado! +${outcome.gloryEarned} Glória`, 'glory');
+    } else if (outcome.tier === 2) {
+      logs.push(`Vitória Padrão (Nível 2)! +${outcome.gloryEarned} pontos de glória!`);
+      nextBossGlory += outcome.gloryEarned;
+      nextBossesDefeated.push(villain.name);
+      nextBossOutcomes[villain.id] = 'defeated';
+      feedback = makeFeedback(`${villain.name} vencido! +${outcome.gloryEarned} Glória`, 'glory');
+    } else {
+      logs.push(`Derrota contra ${villain.name}! A comitiva sofreu ${outcome.woundsTaken} de dano!`);
+      nextParty = applyPartyDamage(nextParty, outcome.woundsTaken);
+      nextBossOutcomes[villain.id] = 'victorious';
+      feedback = makeFeedback(`Derrota no Chefe! -${outcome.woundsTaken} Vida`, 'damage');
+    }
+
+    return {
+      party: nextParty,
+      bossGlory: nextBossGlory,
+      bossesDefeated: nextBossesDefeated,
+      bossOutcomes: nextBossOutcomes,
+      feedback,
+    };
+  };
+
+  const advanceAfterBossResolution = (params: {
+    state: GameState;
+    party: HeroParty;
+    bossGlory: number;
+    bossesDefeated: string[];
+    bossOutcomes: Record<string, BossOutcome>;
+    logs: string[];
+    feedback: EventFeedback;
+  }) => {
+    const { state, bossGlory, bossesDefeated, bossOutcomes, logs } = params;
+    let currentParty = params.party;
+    let feedback = params.feedback;
+
+    const missions = evaluateMissions({
+      missions: state.missions,
+      minionsDefeatedCount: state.minionsDefeatedCount,
+      potionsAndItemsCount: state.artisanCount,
+      visitedCount: state.dungeon.visitedCoords.length,
+    });
+
+    if (state.currentRound >= 8) {
+      const missionsGlory = calculateMissionsGlory(missions);
+      const finalScore = calculateFinalGloryScore({
+        party: currentParty,
+        minionsDefeatedCount: state.minionsDefeatedCount,
+        minionsGlory: state.minionsGlory,
+        bossGlory,
+        gemsCount: currentParty.gems,
+        itemsCrafted: currentParty.magicItems,
+        missionsGlory,
+        masteryGlory: state.masteryGlory,
+      });
+
+      logs.push(`Expedição concluída! Glória Final: ${finalScore.netGlory} pontos.`);
+
+      set({
+        isGameOver: true,
+        party: currentParty,
+        bossGlory,
+        bossesDefeated,
+        bossOutcomes,
+        pendingBossEncounter: null,
+        missions,
+        finalScore,
+        logs,
+        history: [],
+        future: [],
+        lastEventFeedback: makeFeedback(`Expedição concluída: ${finalScore.netGlory} Glória!`, 'glory'),
+      });
+      saveToLocalStorage(get());
+      return;
+    }
+
+    const nextRound = state.currentRound + 1;
+    const nextDicePool = rollDicePool(
+      createSeededRng(deriveRoundSeed(state.seed, nextRound, state.mapId))
+    );
+    const hazard = checkHazardPhase(nextDicePool);
+
+    logs.push(`Iniciando Rodada ${nextRound}. Novos dados rolados.`);
+    if (hazard.hazardTriggered) {
+      const sealReduction = getRelicCount(currentParty, 'selo-onmyo');
+      const effectiveWounds = Math.max(0, hazard.wounds - sealReduction);
+      if (effectiveWounds > 0) {
+        currentParty = applyPartyDamage(currentParty, effectiveWounds);
+        logs.push(`Fase de Perigo: 3+ crânios! A comitiva sofreu ${effectiveWounds} ferimento.`);
+        feedback = makeFeedback(`Fase de Perigo! -${effectiveWounds} Vida`, 'damage');
+      } else {
+        logs.push('Selo Onmyō bloqueou a Fase de Perigo (0 ferimento)!');
+      }
+    }
+
+    set({
+      currentRound: nextRound,
+      party: currentParty,
+      bossGlory,
+      bossesDefeated,
+      bossOutcomes,
+      pendingBossEncounter: null,
+      missions,
+      dicePool: nextDicePool,
+      selectedDieId: null,
+      consumedDieIds: [],
+      logs,
+      history: [],
+      future: [],
+      lastEventFeedback: feedback,
+    });
+
+    saveToLocalStorage(get());
+  };
 
   return {
     ...initialState,
@@ -427,6 +610,7 @@ export const useGameStore = create<GameState>((set, get) => {
       let minionsDefeatedCount = state.minionsDefeatedCount;
       let minionsGlory = state.minionsGlory;
       let artisanCount = state.artisanCount;
+      let masteryGlory = state.masteryGlory;
       const newLogs = [...state.logs];
       let feedback: EventFeedback = makeFeedback(
         `Moveu para ${formatCoordLabel(target)}`,
@@ -453,15 +637,35 @@ export const useGameStore = create<GameState>((set, get) => {
             feedback = makeFeedback(`+${outcome.gloryEarned} Glória!`, 'glory');
           }
         } else if (ev.type === 'trap' && typeof ev.payload === 'number') {
-          currentParty = applyPartyDamage(currentParty, ev.payload);
-          feedback = makeFeedback(`Armadilha! -${ev.payload} Vida`, 'damage');
+          const omamoriReduction = getRelicCount(currentParty, 'amuleto-omamori');
+          const effectiveDamage = Math.max(0, ev.payload - omamoriReduction);
+          if (effectiveDamage === 0) {
+            newLogs.push('Amuleto Omamori neutralizou a armadilha (0 dano)!');
+            feedback = makeFeedback('Armadilha neutralizada! (Omamori)', 'heal');
+          } else {
+            currentParty = applyPartyDamage(currentParty, effectiveDamage);
+            if (omamoriReduction > 0) {
+              newLogs.push(
+                `Amuleto Omamori reduziu o dano da armadilha para ${effectiveDamage} ferimento(s).`
+              );
+            }
+            feedback = makeFeedback(`Armadilha! -${effectiveDamage} Vida`, 'damage');
+          }
         } else if (ev.type === 'gem' && typeof ev.payload === 'number') {
           currentParty = collectGem(currentParty, ev.payload);
           feedback = makeFeedback(`+${ev.payload} Gema(s) (+${ev.payload * 2} Glória)`, 'glory');
         } else if (ev.type === 'item') {
-          currentParty = craftItem(currentParty);
+          const forged = forgeNextRelic(currentParty, masteryGlory);
+          currentParty = forged.nextParty;
+          masteryGlory = forged.nextMasteryGlory;
           artisanCount += 1;
-          feedback = makeFeedback('+1 Artefato (+2 Glória)', 'glory');
+          newLogs.push(
+            `${forged.relic.name} encontrada! (${forged.relic.shortBonus}, +2 Glória ao final).`
+          );
+          feedback = makeFeedback(
+            `${forged.relic.name} (${forged.relic.shortBonus})`,
+            'glory'
+          );
         }
       });
 
@@ -482,6 +686,7 @@ export const useGameStore = create<GameState>((set, get) => {
         selectedDieId: null,
         minionsDefeatedCount,
         minionsGlory,
+        masteryGlory,
         artisanCount,
         missions: nextMissions,
         logs: newLogs,
@@ -609,7 +814,7 @@ export const useGameStore = create<GameState>((set, get) => {
       }
 
       const snapshot = takeSnapshot(state);
-      const updatedParty = craftItem(state.party);
+      const forged = forgeNextRelic(state.party, state.masteryGlory);
       const artisanCount = state.artisanCount + 1;
       const nextMissions = evaluateMissions({
         missions: state.missions,
@@ -621,20 +826,27 @@ export const useGameStore = create<GameState>((set, get) => {
       set({
         history: [...state.history, snapshot],
         future: [],
-        party: updatedParty,
+        party: forged.nextParty,
         dicePool: consumption.updatedPool,
         consumedDieIds: [...state.consumedDieIds, consumption.consumedId],
         selectedDieId: null,
+        masteryGlory: forged.nextMasteryGlory,
         artisanCount,
         missions: nextMissions,
-        logs: [...state.logs, 'Artefato mágico forjado (+2 glória ao final).'],
-        lastEventFeedback: makeFeedback('+1 Artefato (+2 Glória)', 'glory'),
+        logs: [
+          ...state.logs,
+          `${forged.relic.name} forjada! (${forged.relic.shortBonus}, +2 Glória ao final).`,
+        ],
+        lastEventFeedback: makeFeedback(
+          `${forged.relic.name} (${forged.relic.shortBonus})`,
+          'glory'
+        ),
       });
     },
 
     undo: () => {
       const state = get();
-      if (state.history.length === 0) return;
+      if (state.history.length === 0 || state.pendingBossEncounter) return;
 
       const previous = state.history[state.history.length - 1];
       const newHistory = state.history.slice(0, state.history.length - 1);
@@ -653,6 +865,7 @@ export const useGameStore = create<GameState>((set, get) => {
         minionsGlory: previous.minionsGlory,
         bossGlory: previous.bossGlory,
         bossesDefeated: previous.bossesDefeated,
+        bossOutcomes: previous.bossOutcomes,
         masteryGlory: previous.masteryGlory,
         artisanCount: previous.artisanCount,
         missions: previous.missions,
@@ -665,7 +878,7 @@ export const useGameStore = create<GameState>((set, get) => {
 
     redo: () => {
       const state = get();
-      if (state.future.length === 0) return;
+      if (state.future.length === 0 || state.pendingBossEncounter) return;
 
       const next = state.future[0];
       const newFuture = state.future.slice(1);
@@ -684,6 +897,7 @@ export const useGameStore = create<GameState>((set, get) => {
         minionsGlory: next.minionsGlory,
         bossGlory: next.bossGlory,
         bossesDefeated: next.bossesDefeated,
+        bossOutcomes: next.bossOutcomes,
         masteryGlory: next.masteryGlory,
         artisanCount: next.artisanCount,
         missions: next.missions,
@@ -694,115 +908,109 @@ export const useGameStore = create<GameState>((set, get) => {
       });
     },
 
-    confirmRound: () => {
+    confirmRound: (options?: { interactive?: boolean }) => {
       const state = get();
-      if (state.isGameOver) return;
+      if (state.isGameOver || state.pendingBossEncounter) return;
 
-      let currentParty = state.party;
-      let bossGlory = state.bossGlory;
-      const bossesDefeated = [...state.bossesDefeated];
-      const newLogs = [...state.logs, `Rodada ${state.currentRound} encerrada.`];
-      let feedback: EventFeedback = makeFeedback(`Rodada ${state.currentRound} confirmada`, 'info');
+      const isBossRound =
+        state.currentRound === 3 || state.currentRound === 6 || state.currentRound === 8;
+      const bossRoom = isBossRound
+        ? Object.values(state.dungeon.rooms).find(
+            (r) => r.type === 'boss' && r.villain && r.villain.round === state.currentRound
+          )
+        : undefined;
 
-      if (state.currentRound === 3 || state.currentRound === 6 || state.currentRound === 8) {
-        const bossRoom = Object.values(state.dungeon.rooms).find(
-          (r) => r.type === 'boss' && r.villain && r.villain.round === state.currentRound
-        );
-
-        if (bossRoom && bossRoom.villain) {
-          const villain = bossRoom.villain;
-          const outcome = resolveVillainBattle(currentParty, villain);
-          newLogs.push(
-            `Confronto contra o Chefe ${villain.name}! (Poder do Grupo: ${outcome.partyPower})`
-          );
-
-          if (outcome.tier === 1) {
-            newLogs.push(`Vitória Heroica (Nível 1)! +${outcome.gloryEarned} pontos de glória!`);
-            bossGlory += outcome.gloryEarned;
-            bossesDefeated.push(villain.name);
-            feedback = makeFeedback(`${villain.name} derrotado! +${outcome.gloryEarned} Glória`, 'glory');
-          } else if (outcome.tier === 2) {
-            newLogs.push(`Vitória Padrão (Nível 2)! +${outcome.gloryEarned} pontos de glória!`);
-            bossGlory += outcome.gloryEarned;
-            bossesDefeated.push(villain.name);
-            feedback = makeFeedback(`${villain.name} vencido! +${outcome.gloryEarned} Glória`, 'glory');
-          } else {
-            newLogs.push(
-              `Derrota contra ${villain.name}! A comitiva sofreu ${outcome.woundsTaken} de dano!`
-            );
-            currentParty = applyPartyDamage(currentParty, outcome.woundsTaken);
-            feedback = makeFeedback(`Derrota no Chefe! -${outcome.woundsTaken} Vida`, 'damage');
-          }
-        }
-      }
-
-      const missions = evaluateMissions({
-        missions: state.missions,
-        minionsDefeatedCount: state.minionsDefeatedCount,
-        potionsAndItemsCount: state.artisanCount,
-        visitedCount: state.dungeon.visitedCoords.length,
-      });
-
-      if (state.currentRound >= 8) {
-        const missionsGlory = calculateMissionsGlory(missions);
-        const finalScore = calculateFinalGloryScore({
-          party: currentParty,
-          minionsDefeatedCount: state.minionsDefeatedCount,
-          minionsGlory: state.minionsGlory,
-          bossGlory,
-          gemsCount: currentParty.gems,
-          itemsCrafted: currentParty.magicItems,
-          missionsGlory,
-          masteryGlory: state.masteryGlory,
-        });
-
-        newLogs.push(`Expedição concluída! Glória Final: ${finalScore.netGlory} pontos.`);
-
+      if (options?.interactive && bossRoom?.villain && !state.bossOutcomes[bossRoom.villain.id]) {
         set({
-          isGameOver: true,
-          party: currentParty,
-          bossGlory,
-          bossesDefeated,
-          missions,
-          finalScore,
-          logs: newLogs,
-          history: [],
-          future: [],
-          lastEventFeedback: makeFeedback(`Expedição concluída: ${finalScore.netGlory} Glória!`, 'glory'),
+          pendingBossEncounter: bossRoom.villain,
         });
-        saveToLocalStorage(get());
         return;
       }
 
-      const nextRound = state.currentRound + 1;
-      const nextDicePool = rollDicePool(
-        createSeededRng(deriveRoundSeed(state.seed, nextRound, state.mapId))
-      );
-      const hazard = checkHazardPhase(nextDicePool);
+      let currentParty = state.party;
+      let bossGlory = state.bossGlory;
+      let bossesDefeated = [...state.bossesDefeated];
+      let bossOutcomes = { ...state.bossOutcomes };
+      const newLogs = [...state.logs, `Rodada ${state.currentRound} encerrada.`];
+      let feedback: EventFeedback = makeFeedback(`Rodada ${state.currentRound} confirmada`, 'info');
 
-      newLogs.push(`Iniciando Rodada ${nextRound}. Novos dados rolados.`);
-      if (hazard.hazardTriggered) {
-        currentParty = applyPartyDamage(currentParty, hazard.wounds);
-        newLogs.push(`Fase de Perigo: 3+ crânios! A comitiva sofreu ${hazard.wounds} ferimento.`);
-        feedback = makeFeedback(`Fase de Perigo! -${hazard.wounds} Vida`, 'damage');
+      if (bossRoom?.villain) {
+        const resolved = applyBossCombatOutcome({
+          party: currentParty,
+          villain: bossRoom.villain,
+          bossGlory,
+          bossesDefeated,
+          bossOutcomes,
+          logs: newLogs,
+        });
+        currentParty = resolved.party;
+        bossGlory = resolved.bossGlory;
+        bossesDefeated = resolved.bossesDefeated;
+        bossOutcomes = resolved.bossOutcomes;
+        feedback = resolved.feedback;
       }
 
-      set({
-        currentRound: nextRound,
+      advanceAfterBossResolution({
+        state,
         party: currentParty,
         bossGlory,
         bossesDefeated,
-        missions,
-        dicePool: nextDicePool,
-        selectedDieId: null,
-        consumedDieIds: [],
+        bossOutcomes,
         logs: newLogs,
-        history: [],
-        future: [],
-        lastEventFeedback: feedback,
+        feedback,
       });
+    },
 
-      saveToLocalStorage(get());
+    resolvePendingBoss: (choice: 'fight' | 'flee') => {
+      const state = get();
+      const villain = state.pendingBossEncounter;
+      if (!villain || state.isGameOver) return;
+
+      let currentParty = state.party;
+      let bossGlory = state.bossGlory;
+      let bossesDefeated = [...state.bossesDefeated];
+      let bossOutcomes = { ...state.bossOutcomes };
+      const newLogs = [...state.logs, `Rodada ${state.currentRound} encerrada.`];
+      let feedback: EventFeedback;
+
+      if (choice === 'flee') {
+        currentParty = applyPartyDamage(currentParty, 1);
+        bossOutcomes[villain.id] = 'victorious';
+        newLogs.push(
+          `Comitiva recuou diante de ${villain.name} (-1 vida). Chefe saiu vitorioso!`
+        );
+        feedback = makeFeedback('Recuo tático! -1 Vida', 'damage');
+      } else {
+        const resolved = applyBossCombatOutcome({
+          party: currentParty,
+          villain,
+          bossGlory,
+          bossesDefeated,
+          bossOutcomes,
+          logs: newLogs,
+        });
+        currentParty = resolved.party;
+        bossGlory = resolved.bossGlory;
+        bossesDefeated = resolved.bossesDefeated;
+        bossOutcomes = resolved.bossOutcomes;
+        feedback = resolved.feedback;
+      }
+
+      advanceAfterBossResolution({
+        state,
+        party: currentParty,
+        bossGlory,
+        bossesDefeated,
+        bossOutcomes,
+        logs: newLogs,
+        feedback,
+      });
+    },
+
+    cancelPendingBoss: () => {
+      if (get().pendingBossEncounter) {
+        set({ pendingBossEncounter: null });
+      }
     },
   };
 });

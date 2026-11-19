@@ -22,6 +22,15 @@ export interface HazardResult {
 
 export type HeroClass = 'warrior' | 'mage' | 'cleric' | 'rogue';
 
+export type RelicId =
+  | 'katana-masamune'
+  | 'amuleto-omamori'
+  | 'espelho-yata'
+  | 'armadura-yoroi'
+  | 'selo-onmyo';
+
+export type BossOutcome = 'defeated' | 'victorious';
+
 export interface HeroState {
   classType: HeroClass;
   level: number;
@@ -36,6 +45,7 @@ export interface HeroParty {
   potions: number;
   magicItems: number;
   gems: number;
+  craftedRelics?: RelicId[];
 }
 
 export interface DungeonCoord {

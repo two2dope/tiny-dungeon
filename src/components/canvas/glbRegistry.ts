@@ -162,6 +162,47 @@ export function parseGlbToGeometry(buffer: ArrayBuffer): THREE.BufferGeometry | 
       }
     }
 
+    if (primitive.attributes.TEXCOORD_0 !== undefined) {
+      const uvData = readTypedSlice(
+        buffer,
+        binOffset,
+        gltf,
+        primitive.attributes.TEXCOORD_0,
+        2
+      );
+      if (uvData instanceof Float32Array) {
+        geometry.setAttribute('uv', new THREE.BufferAttribute(uvData, 2));
+      }
+    }
+
+    if (!geometry.getAttribute('uv')) {
+      const posAttr = geometry.getAttribute('position');
+      const normAttr = geometry.getAttribute('normal');
+      if (posAttr) {
+        const uvs = new Float32Array(posAttr.count * 2);
+        for (let i = 0; i < posAttr.count; i++) {
+          const x = posAttr.getX(i);
+          const y = posAttr.getY(i);
+          const z = posAttr.getZ(i);
+          const nx = normAttr ? Math.abs(normAttr.getX(i)) : 0;
+          const ny = normAttr ? Math.abs(normAttr.getY(i)) : 0;
+          const nz = normAttr ? Math.abs(normAttr.getZ(i)) : 1;
+
+          if (ny >= nx && ny >= nz) {
+            uvs[i * 2] = x * 1.4 + 0.5;
+            uvs[i * 2 + 1] = z * 1.4 + 0.5;
+          } else if (nx >= ny && nx >= nz) {
+            uvs[i * 2] = z * 1.6 + 0.5;
+            uvs[i * 2 + 1] = y * 1.4 + 0.5;
+          } else {
+            uvs[i * 2] = x * 1.4 + 0.5;
+            uvs[i * 2 + 1] = y * 1.4 + 0.5;
+          }
+        }
+        geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+      }
+    }
+
     geometry.computeBoundingBox();
     geometry.computeBoundingSphere();
     return geometry;

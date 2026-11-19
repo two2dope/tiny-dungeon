@@ -4,3 +4,7 @@ dist
 *.local
 out/
 assets/flow-assets-bundle.json
+assets/GUI UI_UX/
+assets/GUI UI_UX.zip
+assets/flow-assets-bundle*.json
+assets/Gemini_Generated_Image_*.jpeg

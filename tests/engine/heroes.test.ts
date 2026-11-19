@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createInitialParty, levelUpHero, applyPartyDamage, brewPotion, craftItem } from '../../src/engine/heroes';
+import { RELIC_CATALOG } from '../../src/engine/relics';
 
 describe('Hero Party System', () => {
   it('should initialize with 4 heroes at level 1 and 0 damage', () => {
@@ -27,12 +28,22 @@ describe('Hero Party System', () => {
     expect(party.currentHealth).toBeGreaterThan(0);
   });
 
-  it('should brew potions and craft magic items correctly', () => {
+  it('should brew potions and sequentially craft named relics including armadura-yoroi maxHealth bonus', () => {
     let party = createInitialParty();
     party = brewPotion(party);
     expect(party.potions).toBe(1);
 
+    // Craft first 4 relics in RELIC_CATALOG sequentially; 4th is armadura-yoroi
+    for (let i = 0; i < 4; i++) {
+      party = craftItem(party);
+    }
+    expect(party.magicItems).toBe(4);
+    expect(party.craftedRelics).toEqual(RELIC_CATALOG.slice(0, 4).map((r) => r.id));
+    expect(party.maxHealth).toBe(7);
+    expect(party.currentHealth).toBe(7);
+
+    // 5th relic completes the catalog
     party = craftItem(party);
-    expect(party.magicItems).toBe(1);
+    expect(party.craftedRelics).toEqual(RELIC_CATALOG.map((r) => r.id));
   });
 });
