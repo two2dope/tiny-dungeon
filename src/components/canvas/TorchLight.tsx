@@ -39,12 +39,10 @@ export const TorchLight: React.FC<TorchLightProps> = ({
         color={color}
         distance={16}
         decay={1.1}
-        castShadow
-        shadow-bias={-0.002}
       />
       {lanternGeom ? (
         <group scale={1.35}>
-          <mesh geometry={lanternGeom} castShadow>
+          <mesh geometry={lanternGeom}>
             <meshStandardMaterial
               color={theme === 'sengoku' ? '#3f2e21' : '#334155'}
               roughness={0.55}

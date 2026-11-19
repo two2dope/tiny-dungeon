@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import {
   BossOutcome,
   DicePool,
+  Die,
   DieColor,
   DieSymbol,
   DungeonCoord,
@@ -10,11 +11,23 @@ import {
   HeroClass,
   HeroParty,
   MissionCard,
+  PendingReward,
   RelicId,
   ThemeId,
   Villain,
 } from '../engine/types';
-import { getNextRelicToCraft, getRelicById, getRelicCount } from '../engine/relics';
+import {
+  findMatchingSlotIndex,
+  findNextOpenSlotIndex,
+  getNextRelicToCraft,
+  getRelicById,
+  getRelicCount,
+  getRelicSlotProgress,
+  hasBarrierCrossingAbility,
+  getMovementBonusSteps,
+  isRelicCompleted,
+  RELIC_CATALOG,
+} from '../engine/relics';
 import { rollDicePool, checkHazardPhase, draftDie, undraftDie } from '../engine/dice';
 import {
   createInitialParty,
@@ -22,8 +35,8 @@ import {
   applyPartyDamage,
   brewPotion,
   usePotion,
-  craftItem,
   collectGem,
+  advanceRelicSlot,
   HERO_CLOAK_AFFINITY,
   HERO_DIE_SYMBOL,
 } from '../engine/heroes';
@@ -32,6 +45,7 @@ import {
   executeMove,
   rehydrateWalls,
   formatCoordLabel,
+  getValidMoves,
 } from '../engine/dungeon';
 import { resolveMinionEncounter, resolveVillainBattle } from '../engine/combat';
 import {
@@ -40,6 +54,12 @@ import {
   createInitialMissions,
   evaluateMissions,
 } from '../engine/scoring';
+import {
+  getMinionTrackGlory,
+  getNewlyReachedGemMilestones,
+  getNewlyReachedPotionMilestones,
+  POTION_MILESTONES,
+} from '../engine/tracks';
 import { createSeededRng, deriveRoundSeed, parseSeedFromUrl } from '../engine/rng';
 
 export interface EventFeedback {
@@ -47,6 +67,12 @@ export interface EventFeedback {
   text: string;
   tone: 'damage' | 'glory' | 'heal' | 'info';
 }
+
+export type RewardChoice =
+  | { type: 'hero-level'; classType: HeroClass }
+  | { type: 'relic-step'; relicId: RelicId }
+  | { type: 'gems'; count: number }
+  | { type: 'mastery-fallback' };
 
 export interface GameSnapshot {
   party: HeroParty;
@@ -59,6 +85,9 @@ export interface GameSnapshot {
   bossGlory: number;
   bossesDefeated: string[];
   bossOutcomes: Record<string, BossOutcome>;
+  pendingRewards: PendingReward[];
+  claimedPotionMilestones: number[];
+  claimedGemMilestones: number[];
   masteryGlory: number;
   artisanCount: number;
   missions: MissionCard[];
@@ -82,6 +111,9 @@ export interface GameState {
   bossesDefeated: string[];
   bossOutcomes: Record<string, BossOutcome>;
   pendingBossEncounter: Villain | null;
+  pendingRewards: PendingReward[];
+  claimedPotionMilestones: number[];
+  claimedGemMilestones: number[];
   masteryGlory: number;
   artisanCount: number;
   missions: MissionCard[];
@@ -101,6 +133,8 @@ export interface GameState {
   stageBrewPotion: () => void;
   stageUsePotion: () => void;
   stageCraftItem: () => void;
+  stageCraftRelic: (relicId: RelicId) => void;
+  resolvePendingReward: (choice: RewardChoice) => void;
   undo: () => void;
   redo: () => void;
   confirmRound: (options?: { interactive?: boolean }) => void;
@@ -110,6 +144,23 @@ export interface GameState {
 
 const STORAGE_KEY = 'tiny_dungeon_save_v2';
 const THEME_STORAGE_KEY = 'tiny_dungeon_theme_v1';
+
+let feedbackSeq = 1;
+let rewardSeq = 1;
+
+function makeFeedback(text: string, tone: EventFeedback['tone']): EventFeedback {
+  feedbackSeq += 1;
+  return { id: feedbackSeq, text, tone };
+}
+
+function makePendingReward(
+  source: string,
+  title: string,
+  kind: PendingReward['kind']
+): PendingReward {
+  rewardSeq += 1;
+  return { id: `rw-${rewardSeq}`, source, title, kind };
+}
 
 function isTestEnvironment(): boolean {
   const proc = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process;
@@ -149,6 +200,9 @@ function saveToLocalStorage(state: Partial<GameState>) {
       bossGlory: state.bossGlory,
       bossesDefeated: state.bossesDefeated,
       bossOutcomes: state.bossOutcomes,
+      claimedPotionMilestones: state.claimedPotionMilestones,
+      claimedGemMilestones: state.claimedGemMilestones,
+      pendingRewards: state.pendingRewards,
       masteryGlory: state.masteryGlory,
       artisanCount: state.artisanCount,
       missions: state.missions,
@@ -161,17 +215,31 @@ function saveToLocalStorage(state: Partial<GameState>) {
 }
 
 export function migrateSavedParty(party: HeroParty): HeroParty {
-  if (Array.isArray(party.craftedRelics)) {
-    return party;
+  const backfilledRelics: RelicId[] = Array.isArray(party.craftedRelics)
+    ? [...party.craftedRelics]
+    : [];
+  if (!Array.isArray(party.craftedRelics)) {
+    const count = Math.max(0, party.magicItems ?? 0);
+    while (backfilledRelics.length < count) {
+      backfilledRelics.push(getNextRelicToCraft(backfilledRelics));
+    }
   }
-  const backfilled: RelicId[] = [];
-  const count = Math.max(0, party.magicItems ?? 0);
-  while (backfilled.length < count) {
-    backfilled.push(getNextRelicToCraft(backfilled));
+
+  const nextProgress: Partial<Record<RelicId, boolean[]>> = {
+    ...(party.relicProgress ?? {}),
+  };
+  for (const id of backfilledRelics) {
+    if (!nextProgress[id]) {
+      const def = getRelicById(id);
+      nextProgress[id] = def.recipe.map(() => true);
+    }
   }
+
   return {
     ...party,
-    craftedRelics: backfilled,
+    potionsBrewed: party.potionsBrewed ?? party.potions ?? 0,
+    craftedRelics: backfilledRelics,
+    relicProgress: nextProgress,
   };
 }
 
@@ -184,14 +252,27 @@ function loadFromLocalStorage(): Partial<GameState> | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !parsed.dungeon || !parsed.party || !parsed.dicePool) return null;
+    const migratedParty = migrateSavedParty(parsed.party as HeroParty);
+    const brewed = migratedParty.potionsBrewed ?? 0;
+    const claimedPotionMilestones: number[] = Array.isArray(parsed.claimedPotionMilestones)
+      ? parsed.claimedPotionMilestones
+      : POTION_MILESTONES.filter((m) => brewed >= m.threshold).map((m) => m.threshold);
+    const canonical = getCanonicalMap(parsed.mapId ?? parsed.dungeon.mapId ?? 1);
+
     return {
       ...parsed,
-      party: migrateSavedParty(parsed.party as HeroParty),
+      party: migratedParty,
       bossOutcomes: parsed.bossOutcomes ?? {},
       pendingBossEncounter: null,
+      pendingRewards: Array.isArray(parsed.pendingRewards) ? parsed.pendingRewards : [],
+      claimedPotionMilestones,
+      claimedGemMilestones: Array.isArray(parsed.claimedGemMilestones)
+        ? parsed.claimedGemMilestones
+        : [],
       dungeon: {
         ...parsed.dungeon,
         walls: rehydrateWalls(parsed.dungeon.walls || []),
+        portals: parsed.dungeon.portals ?? canonical.portals ?? [],
       },
     };
   } catch {
@@ -199,12 +280,155 @@ function loadFromLocalStorage(): Partial<GameState> | null {
   }
 }
 
-function forgeNextRelic(party: HeroParty, masteryGlory: number) {
-  const relicId = getNextRelicToCraft(party.craftedRelics ?? []);
-  const nextParty = craftItem(party, relicId);
-  const relic = getRelicById(relicId);
-  const nextMasteryGlory = masteryGlory + (relicId === 'espelho-yata' ? 1 : 0);
-  return { nextParty, relic, nextMasteryGlory };
+function collectTriggeredMilestones(params: {
+  prevPotionsBrewed: number;
+  prevGems: number;
+  party: HeroParty;
+  claimedPotionMilestones: number[];
+  claimedGemMilestones: number[];
+  logs: string[];
+}): {
+  party: HeroParty;
+  claimedPotionMilestones: number[];
+  claimedGemMilestones: number[];
+  queuedRewards: PendingReward[];
+} {
+  let party = params.party;
+  const claimedPotions = [...params.claimedPotionMilestones];
+  const claimedGems = [...params.claimedGemMilestones];
+  const queuedRewards: PendingReward[] = [];
+
+  const gemMilestones = getNewlyReachedGemMilestones(params.prevGems, party.gems, claimedGems);
+  for (const gm of gemMilestones) {
+    claimedGems.push(gm.threshold);
+    if (gm.kind === 'choose-relic-step') {
+      params.logs.push(`Marco de Gemas (${gm.threshold}): Forja Gratuita (+1 casa) desbloqueada!`);
+      queuedRewards.push(
+        makePendingReward(
+          `gem-${gm.threshold}`,
+          `Marco de Gemas (${gm.threshold}): Escolha 1 casa de Forja`,
+          'choose-relic-step'
+        )
+      );
+    } else if (gm.kind === 'choose-hero-level') {
+      params.logs.push(`Marco de Gemas (${gm.threshold}): Upgrade de Herói desbloqueado!`);
+      queuedRewards.push(
+        makePendingReward(
+          `gem-${gm.threshold}`,
+          `Marco de Gemas (${gm.threshold}): Escolha 1 Herói para evoluir`,
+          'choose-hero-level'
+        )
+      );
+    } else if (gm.kind === 'instant-potions-and-relic') {
+      party = brewPotion(party, 2);
+      params.logs.push(
+        `Marco de Gemas (${gm.threshold}): +2 Poções destiladas e Forja Gratuita (+1 casa)!`
+      );
+      queuedRewards.push(
+        makePendingReward(
+          `gem-${gm.threshold}`,
+          `Marco de Gemas (${gm.threshold}): +2 Poções e 1 casa de Forja`,
+          'choose-relic-step'
+        )
+      );
+    }
+  }
+
+  const potionMilestones = getNewlyReachedPotionMilestones(
+    params.prevPotionsBrewed,
+    party.potionsBrewed ?? 0,
+    claimedPotions
+  );
+  for (const pm of potionMilestones) {
+    claimedPotions.push(pm.threshold);
+    params.logs.push(`Marco de Poções (${pm.threshold}/12): ${pm.label}!`);
+    queuedRewards.push(
+      makePendingReward(
+        `potion-${pm.threshold}`,
+        `Marco de Poções (${pm.threshold}/12): ${pm.label}`,
+        pm.kind
+      )
+    );
+  }
+
+  return {
+    party,
+    claimedPotionMilestones: claimedPotions,
+    claimedGemMilestones: claimedGems,
+    queuedRewards,
+  };
+}
+
+function applyRelicSlotWithEffects(params: {
+  party: HeroParty;
+  relicId: RelicId;
+  slotIndex: number;
+  masteryGlory: number;
+  claimedPotionMilestones: number[];
+  claimedGemMilestones: number[];
+  logs: string[];
+}): {
+  party: HeroParty;
+  completedNow: boolean;
+  masteryGlory: number;
+  claimedPotionMilestones: number[];
+  claimedGemMilestones: number[];
+  queuedRewards: PendingReward[];
+  feedback: EventFeedback;
+} {
+  const prevPotionsBrewed = params.party.potionsBrewed ?? 0;
+  const prevGems = params.party.gems;
+  const relic = getRelicById(params.relicId);
+  const { party: stampedParty, completedNow } = advanceRelicSlot(
+    params.party,
+    params.relicId,
+    params.slotIndex
+  );
+  let nextParty = stampedParty;
+  const queuedRewards: PendingReward[] = [];
+
+  const filled = getRelicSlotProgress(nextParty, params.relicId).filter(Boolean).length;
+  const total = relic.recipe.length;
+
+  let feedback: EventFeedback;
+  if (completedNow) {
+    params.logs.push(`${relic.name} concluída! (${relic.shortBonus})`);
+    feedback = makeFeedback(`${relic.name} forjada!`, 'glory');
+
+    if (params.relicId === 'espelho-yata') {
+      params.logs.push('Espelho Yata: escolha 1 Herói para ganhar +1 Nível!');
+      queuedRewards.push(
+        makePendingReward(
+          'relic-espelho-yata',
+          'Espelho Yata: Escolha 1 Herói para +1 Nível',
+          'choose-hero-level'
+        )
+      );
+    }
+  } else {
+    params.logs.push(`${relic.name}: casa ${filled}/${total} preenchida.`);
+    feedback = makeFeedback(`${relic.name} (${filled}/${total})`, 'glory');
+  }
+
+  const milestones = collectTriggeredMilestones({
+    prevPotionsBrewed,
+    prevGems,
+    party: nextParty,
+    claimedPotionMilestones: params.claimedPotionMilestones,
+    claimedGemMilestones: params.claimedGemMilestones,
+    logs: params.logs,
+  });
+  nextParty = milestones.party;
+
+  return {
+    party: nextParty,
+    completedNow,
+    masteryGlory: params.masteryGlory,
+    claimedPotionMilestones: milestones.claimedPotionMilestones,
+    claimedGemMilestones: milestones.claimedGemMilestones,
+    queuedRewards: [...queuedRewards, ...milestones.queuedRewards],
+    feedback,
+  };
 }
 
 function buildFreshRun(seed: number, mapId: number, theme: ThemeId) {
@@ -237,6 +461,9 @@ function buildFreshRun(seed: number, mapId: number, theme: ThemeId) {
     bossesDefeated: [] as string[],
     bossOutcomes: {} as Record<string, BossOutcome>,
     pendingBossEncounter: null as Villain | null,
+    pendingRewards: [] as PendingReward[],
+    claimedPotionMilestones: [] as number[],
+    claimedGemMilestones: [] as number[],
     masteryGlory: 0,
     artisanCount: 0,
     missions: createInitialMissions(),
@@ -247,10 +474,21 @@ function buildFreshRun(seed: number, mapId: number, theme: ThemeId) {
   };
 }
 
-let feedbackSeq = 1;
-function makeFeedback(text: string, tone: EventFeedback['tone']): EventFeedback {
-  feedbackSeq += 1;
-  return { id: feedbackSeq, text, tone };
+function markDieAsConsumed(state: GameState, dieId: string): DicePool {
+  let nextPool: DicePool = state.dicePool;
+  if (!nextPool.draftedIds.includes(dieId)) {
+    if (nextPool.draftedIds.length < 3) {
+      nextPool = draftDie(nextPool, dieId);
+    } else {
+      const replaceable = nextPool.draftedIds.find((id) => !state.consumedDieIds.includes(id));
+      const trimmed = replaceable
+        ? nextPool.draftedIds.filter((id) => id !== replaceable)
+        : nextPool.draftedIds.slice(0, 2);
+      nextPool = { ...nextPool, draftedIds: [...trimmed, dieId] };
+    }
+  }
+  const nextUsedIds = [...(nextPool.usedIds ?? []), dieId];
+  return { ...nextPool, usedIds: nextUsedIds };
 }
 
 function consumeDieForAction(
@@ -285,8 +523,9 @@ function consumeDieForAction(
     };
   }
 
-  let chosen =
-    state.selectedDieId ? available.find((d) => d.id === state.selectedDieId) : undefined;
+  let chosen = state.selectedDieId
+    ? available.find((d) => d.id === state.selectedDieId)
+    : undefined;
 
   if (!chosen) {
     const draftedAvailable = available.filter((d) => state.dicePool.draftedIds.includes(d.id));
@@ -296,7 +535,9 @@ function consumeDieForAction(
         ? poolToPick.find((d) => d.symbol === preferredSymbol && d.color === preferredColor)
         : undefined) ??
       (preferredSymbol ? poolToPick.find((d) => d.symbol === preferredSymbol) : undefined) ??
-      (preferredColor ? poolToPick.find((d) => d.color === preferredColor && d.symbol !== 'skull') : undefined) ??
+      (preferredColor
+        ? poolToPick.find((d) => d.color === preferredColor && d.symbol !== 'skull')
+        : undefined) ??
       poolToPick.find((d) => d.symbol !== 'skull') ??
       poolToPick[0];
   }
@@ -311,29 +552,66 @@ function consumeDieForAction(
     };
   }
 
-  let nextPool: DicePool = state.dicePool;
-  if (!nextPool.draftedIds.includes(chosen.id)) {
-    if (nextPool.draftedIds.length < 3) {
-      nextPool = draftDie(nextPool, chosen.id);
-    } else {
-      // Replace an unconsumed drafted die so draftedIds stays <= 3
-      const replaceable = nextPool.draftedIds.find((id) => !state.consumedDieIds.includes(id));
-      const trimmed = replaceable
-        ? nextPool.draftedIds.filter((id) => id !== replaceable)
-        : nextPool.draftedIds.slice(0, 2);
-      nextPool = { ...nextPool, draftedIds: [...trimmed, chosen.id] };
-    }
-  }
-
-  const nextUsedIds = [...(nextPool.usedIds ?? []), chosen.id];
-  nextPool = { ...nextPool, usedIds: nextUsedIds };
-
   return {
     ok: true,
     consumedId: chosen.id,
-    updatedPool: nextPool,
+    updatedPool: markDieAsConsumed(state, chosen.id),
     matchedColor: preferredColor ? chosen.color === preferredColor : false,
     matchedSymbol: preferredSymbol ? chosen.symbol === preferredSymbol : false,
+  };
+}
+
+function pickDieForRelic(
+  state: GameState,
+  relicId: RelicId
+): { die: Die | null; slotIndex: number; reason?: string } {
+  if (state.consumedDieIds.length >= 3) {
+    return { die: null, slotIndex: -1, reason: 'Limite de 3 ações por rodada atingido.' };
+  }
+  if (isRelicCompleted(state.party, relicId)) {
+    return { die: null, slotIndex: -1, reason: 'Esta relíquia já foi totalmente forjada.' };
+  }
+
+  const available = state.dicePool.dice.filter((d) => !state.consumedDieIds.includes(d.id));
+  if (available.length === 0) {
+    return { die: null, slotIndex: -1, reason: 'Nenhum dado disponível nesta rodada.' };
+  }
+
+  if (state.selectedDieId) {
+    const selected = available.find((d) => d.id === state.selectedDieId);
+    if (selected) {
+      const slotIndex = findMatchingSlotIndex(state.party, relicId, selected);
+      if (slotIndex < 0) {
+        return {
+          die: null,
+          slotIndex: -1,
+          reason: 'O dado selecionado não atende aos requisitos desta receita.',
+        };
+      }
+      return { die: selected, slotIndex };
+    }
+  }
+
+  const drafted = available.filter((d) => state.dicePool.draftedIds.includes(d.id));
+  const undrafted = available.filter((d) => !state.dicePool.draftedIds.includes(d.id));
+  const ordered = [
+    ...drafted.filter((d) => d.symbol !== 'skull'),
+    ...drafted.filter((d) => d.symbol === 'skull'),
+    ...undrafted.filter((d) => d.symbol !== 'skull'),
+    ...undrafted.filter((d) => d.symbol === 'skull'),
+  ];
+
+  for (const candidate of ordered) {
+    const slotIndex = findMatchingSlotIndex(state.party, relicId, candidate);
+    if (slotIndex >= 0) {
+      return { die: candidate, slotIndex };
+    }
+  }
+
+  return {
+    die: null,
+    slotIndex: -1,
+    reason: 'Nenhum dado disponível compatível com esta receita.',
   };
 }
 
@@ -367,6 +645,9 @@ export const useGameStore = create<GameState>((set, get) => {
     bossGlory: state.bossGlory,
     bossesDefeated: [...state.bossesDefeated],
     bossOutcomes: { ...state.bossOutcomes },
+    pendingRewards: JSON.parse(JSON.stringify(state.pendingRewards)),
+    claimedPotionMilestones: [...state.claimedPotionMilestones],
+    claimedGemMilestones: [...state.claimedGemMilestones],
     masteryGlory: state.masteryGlory,
     artisanCount: state.artisanCount,
     missions: JSON.parse(JSON.stringify(state.missions)),
@@ -594,6 +875,29 @@ export const useGameStore = create<GameState>((set, get) => {
       const state = get();
       if (state.isGameOver) return;
 
+      const maxSteps = 2 + getMovementBonusSteps(state.party);
+      const canCrossBarriers = hasBarrierCrossingAbility(state.party);
+      const validMoves = getValidMoves(state.dungeon, state.dungeon.currentCoord, maxSteps, {
+        canCrossBarriers,
+      });
+      const isReachable = validMoves.some((m) => m.x === target.x && m.y === target.y);
+
+      if (!isReachable) {
+        const targetRoom = state.dungeon.rooms[`${target.x},${target.y}`];
+        const blockedMsg =
+          targetRoom?.locked && !canCrossBarriers
+            ? 'Sala trancada! Forje o Gancho Kaginawa para entrar.'
+            : 'Movimento fora do alcance ou bloqueado por parede.';
+        set({
+          logs: [...state.logs, blockedMsg],
+          lastEventFeedback: makeFeedback(
+            targetRoom?.locked && !canCrossBarriers ? 'Sala Trancada 🔒' : 'Caminho bloqueado',
+            'info'
+          ),
+        });
+        return;
+      }
+
       const consumption = consumeDieForAction(state, 'boot');
       if (!consumption.ok || !consumption.consumedId) {
         set({
@@ -607,14 +911,17 @@ export const useGameStore = create<GameState>((set, get) => {
       const { updatedMap, events } = executeMove(state.dungeon, target);
 
       let currentParty = state.party;
+      const prevPotionsBrewed = currentParty.potionsBrewed ?? 0;
+      const prevGems = currentParty.gems;
       let minionsDefeatedCount = state.minionsDefeatedCount;
       let minionsGlory = state.minionsGlory;
       let artisanCount = state.artisanCount;
-      let masteryGlory = state.masteryGlory;
+      let masteryGlory = state.masteryGlory + (consumption.matchedSymbol ? 1 : 0);
       const newLogs = [...state.logs];
+      const queuedRewards: PendingReward[] = [];
       let feedback: EventFeedback = makeFeedback(
-        `Moveu para ${formatCoordLabel(target)}`,
-        'info'
+        `Moveu para ${formatCoordLabel(target)}${consumption.matchedSymbol ? ' (+1 Maestria)' : ''}`,
+        consumption.matchedSymbol ? 'glory' : 'info'
       );
 
       events.forEach((ev) => {
@@ -622,22 +929,24 @@ export const useGameStore = create<GameState>((set, get) => {
         if (ev.type === 'minion' && ev.payload) {
           const outcome = resolveMinionEncounter(currentParty, ev.payload);
           minionsDefeatedCount += 1;
-          minionsGlory += outcome.gloryEarned;
+          minionsGlory = getMinionTrackGlory(minionsDefeatedCount);
           if (outcome.woundsTaken > 0) {
             currentParty = applyPartyDamage(currentParty, outcome.woundsTaken);
             newLogs.push(
-              `Sofreu ${outcome.woundsTaken} ferimento(s) enfrentando ${ev.payload.name}.`
+              `Sofreu ${outcome.woundsTaken} ferimento(s) enfrentando ${ev.payload.name}. (Trilha de Lacaios: +${minionsGlory} Glória)`
             );
             feedback = makeFeedback(
-              `-${outcome.woundsTaken} Vida • +${outcome.gloryEarned} Glória`,
+              `-${outcome.woundsTaken} Vida • Lacaios +${minionsGlory}`,
               'damage'
             );
           } else {
-            newLogs.push(`Comitiva superou ${ev.payload.name} sem ferimentos (+${outcome.gloryEarned} glória)!`);
-            feedback = makeFeedback(`+${outcome.gloryEarned} Glória!`, 'glory');
+            newLogs.push(
+              `Comitiva superou ${ev.payload.name} sem ferimentos (Trilha de Lacaios: +${minionsGlory} Glória)!`
+            );
+            feedback = makeFeedback(`Lacaio vencido! (Total +${minionsGlory} pts)`, 'glory');
           }
         } else if (ev.type === 'trap' && typeof ev.payload === 'number') {
-          const omamoriReduction = getRelicCount(currentParty, 'amuleto-omamori');
+          const omamoriReduction = getRelicCount(currentParty, 'amuleto-omamori') * 2;
           const effectiveDamage = Math.max(0, ev.payload - omamoriReduction);
           if (effectiveDamage === 0) {
             newLogs.push('Amuleto Omamori neutralizou a armadilha (0 dano)!');
@@ -653,21 +962,42 @@ export const useGameStore = create<GameState>((set, get) => {
           }
         } else if (ev.type === 'gem' && typeof ev.payload === 'number') {
           currentParty = collectGem(currentParty, ev.payload);
-          feedback = makeFeedback(`+${ev.payload} Gema(s) (+${ev.payload * 2} Glória)`, 'glory');
-        } else if (ev.type === 'item') {
-          const forged = forgeNextRelic(currentParty, masteryGlory);
-          currentParty = forged.nextParty;
-          masteryGlory = forged.nextMasteryGlory;
+          feedback = makeFeedback(`+${ev.payload} Gema(s) coletada(s)!`, 'glory');
+        } else if (ev.type === 'potion' && typeof ev.payload === 'number') {
+          currentParty = brewPotion(currentParty, ev.payload);
           artisanCount += 1;
-          newLogs.push(
-            `${forged.relic.name} encontrada! (${forged.relic.shortBonus}, +2 Glória ao final).`
+          feedback = makeFeedback(`+${ev.payload} Poção(ões) na Fonte!`, 'heal');
+        } else if (ev.type === 'item') {
+          const hasIncompleteRelic = RELIC_CATALOG.some(
+            (r) => !isRelicCompleted(currentParty, r.id)
           );
-          feedback = makeFeedback(
-            `${forged.relic.name} (${forged.relic.shortBonus})`,
-            'glory'
-          );
+          if (hasIncompleteRelic) {
+            queuedRewards.push(
+              makePendingReward(
+                `room-item-${formatCoordLabel(target)}`,
+                `Oficina em ${formatCoordLabel(target)}: Forja Gratuita (+1 casa)`,
+                'choose-relic-step'
+              )
+            );
+            feedback = makeFeedback('Oficina! Escolha 1 casa de Forja', 'glory');
+          } else {
+            masteryGlory += 3;
+            newLogs.push('Todas as 8 relíquias completas! +3 Maestria bônus.');
+            feedback = makeFeedback('Todas relíquias completas (+3 Maestria)', 'glory');
+          }
         }
       });
+
+      const milestones = collectTriggeredMilestones({
+        prevPotionsBrewed,
+        prevGems,
+        party: currentParty,
+        claimedPotionMilestones: state.claimedPotionMilestones,
+        claimedGemMilestones: state.claimedGemMilestones,
+        logs: newLogs,
+      });
+      currentParty = milestones.party;
+      const combinedRewards = [...state.pendingRewards, ...queuedRewards, ...milestones.queuedRewards];
 
       const nextMissions = evaluateMissions({
         missions: state.missions,
@@ -688,6 +1018,9 @@ export const useGameStore = create<GameState>((set, get) => {
         minionsGlory,
         masteryGlory,
         artisanCount,
+        pendingRewards: combinedRewards,
+        claimedPotionMilestones: milestones.claimedPotionMilestones,
+        claimedGemMilestones: milestones.claimedGemMilestones,
         missions: nextMissions,
         logs: newLogs,
         lastEventFeedback: feedback,
@@ -749,7 +1082,7 @@ export const useGameStore = create<GameState>((set, get) => {
       const state = get();
       if (state.isGameOver) return;
 
-      const consumption = consumeDieForAction(state, 'shield');
+      const consumption = consumeDieForAction(state);
       if (!consumption.ok || !consumption.consumedId) {
         set({
           logs: [...state.logs, 'Limite de 3 ações por rodada atingido. Confirme a rodada.'],
@@ -759,8 +1092,23 @@ export const useGameStore = create<GameState>((set, get) => {
       }
 
       const snapshot = takeSnapshot(state);
-      const updatedParty = brewPotion(state.party);
+      const prevPotionsBrewed = state.party.potionsBrewed ?? 0;
+      const updatedParty = brewPotion(state.party, 2);
       const artisanCount = state.artisanCount + 1;
+      const newLogs = [
+        ...state.logs,
+        `Poções destiladas (+2 poções no estoque; Trilha: ${updatedParty.potionsBrewed ?? 0}/12).`,
+      ];
+
+      const milestones = collectTriggeredMilestones({
+        prevPotionsBrewed,
+        prevGems: updatedParty.gems,
+        party: updatedParty,
+        claimedPotionMilestones: state.claimedPotionMilestones,
+        claimedGemMilestones: state.claimedGemMilestones,
+        logs: newLogs,
+      });
+
       const nextMissions = evaluateMissions({
         missions: state.missions,
         minionsDefeatedCount: state.minionsDefeatedCount,
@@ -771,14 +1119,17 @@ export const useGameStore = create<GameState>((set, get) => {
       set({
         history: [...state.history, snapshot],
         future: [],
-        party: updatedParty,
+        party: milestones.party,
         dicePool: consumption.updatedPool,
         consumedDieIds: [...state.consumedDieIds, consumption.consumedId],
         selectedDieId: null,
         artisanCount,
+        pendingRewards: [...state.pendingRewards, ...milestones.queuedRewards],
+        claimedPotionMilestones: milestones.claimedPotionMilestones,
+        claimedGemMilestones: milestones.claimedGemMilestones,
         missions: nextMissions,
-        logs: [...state.logs, 'Poção de cura destilada (+1 poção no estoque).'],
-        lastEventFeedback: makeFeedback('+1 Poção Destilada', 'heal'),
+        logs: newLogs,
+        lastEventFeedback: makeFeedback('+2 Poções Destiladas', 'heal'),
       });
     },
 
@@ -800,21 +1151,33 @@ export const useGameStore = create<GameState>((set, get) => {
       });
     },
 
-    stageCraftItem: () => {
+    stageCraftRelic: (relicId: RelicId) => {
       const state = get();
       if (state.isGameOver) return;
 
-      const consumption = consumeDieForAction(state, 'magic');
-      if (!consumption.ok || !consumption.consumedId) {
-        set({
-          logs: [...state.logs, 'Limite de 3 ações por rodada atingido. Confirme a rodada.'],
-          lastEventFeedback: makeFeedback('Sem ações restantes na rodada', 'info'),
-        });
+      const picked = pickDieForRelic(state, relicId);
+      if (!picked.die || picked.slotIndex < 0) {
+        if (picked.reason) {
+          set({
+            logs: [...state.logs, picked.reason],
+            lastEventFeedback: makeFeedback(picked.reason, 'info'),
+          });
+        }
         return;
       }
 
       const snapshot = takeSnapshot(state);
-      const forged = forgeNextRelic(state.party, state.masteryGlory);
+      const newLogs = [...state.logs];
+      const stamped = applyRelicSlotWithEffects({
+        party: state.party,
+        relicId,
+        slotIndex: picked.slotIndex,
+        masteryGlory: state.masteryGlory,
+        claimedPotionMilestones: state.claimedPotionMilestones,
+        claimedGemMilestones: state.claimedGemMilestones,
+        logs: newLogs,
+      });
+
       const artisanCount = state.artisanCount + 1;
       const nextMissions = evaluateMissions({
         missions: state.missions,
@@ -826,21 +1189,133 @@ export const useGameStore = create<GameState>((set, get) => {
       set({
         history: [...state.history, snapshot],
         future: [],
-        party: forged.nextParty,
-        dicePool: consumption.updatedPool,
-        consumedDieIds: [...state.consumedDieIds, consumption.consumedId],
+        party: stamped.party,
+        dicePool: markDieAsConsumed(state, picked.die.id),
+        consumedDieIds: [...state.consumedDieIds, picked.die.id],
         selectedDieId: null,
-        masteryGlory: forged.nextMasteryGlory,
+        masteryGlory: stamped.masteryGlory,
         artisanCount,
+        pendingRewards: [...state.pendingRewards, ...stamped.queuedRewards],
+        claimedPotionMilestones: stamped.claimedPotionMilestones,
+        claimedGemMilestones: stamped.claimedGemMilestones,
         missions: nextMissions,
-        logs: [
-          ...state.logs,
-          `${forged.relic.name} forjada! (${forged.relic.shortBonus}, +2 Glória ao final).`,
-        ],
-        lastEventFeedback: makeFeedback(
-          `${forged.relic.name} (${forged.relic.shortBonus})`,
-          'glory'
-        ),
+        logs: newLogs,
+        lastEventFeedback: stamped.feedback,
+      });
+    },
+
+    stageCraftItem: () => {
+      const state = get();
+      if (state.isGameOver) return;
+
+      for (const relic of RELIC_CATALOG) {
+        const picked = pickDieForRelic(state, relic.id);
+        if (picked.die && picked.slotIndex >= 0) {
+          get().stageCraftRelic(relic.id);
+          return;
+        }
+      }
+
+      const msg =
+        state.consumedDieIds.length >= 3
+          ? 'Limite de 3 ações por rodada atingido. Confirme a rodada.'
+          : 'Nenhum dado compatível com as receitas abertas de relíquias.';
+      set({
+        logs: [...state.logs, msg],
+        lastEventFeedback: makeFeedback(msg, 'info'),
+      });
+    },
+
+    resolvePendingReward: (choice: RewardChoice) => {
+      const state = get();
+      if (state.isGameOver || state.pendingRewards.length === 0) return;
+
+      const snapshot = takeSnapshot(state);
+      const [currentReward, ...restRewards] = state.pendingRewards;
+      let party = state.party;
+      const prevPotionsBrewed = party.potionsBrewed ?? 0;
+      const prevGems = party.gems;
+      let masteryGlory = state.masteryGlory;
+      const logs = [...state.logs];
+      let queuedExtra: PendingReward[] = [];
+      let claimedPotions = state.claimedPotionMilestones;
+      let claimedGems = state.claimedGemMilestones;
+      let feedback: EventFeedback = makeFeedback('Recompensa aplicada!', 'glory');
+
+      if (choice.type === 'hero-level') {
+        const hero = party.heroes[choice.classType];
+        if (hero.level < hero.maxLevel) {
+          party = levelUpHero(party, choice.classType);
+          const labels: Record<HeroClass, string> = {
+            warrior: 'Guerreiro',
+            mage: 'Mago',
+            cleric: 'Clérigo',
+            rogue: 'Ladino',
+          };
+          logs.push(
+            `${currentReward.title}: ${labels[choice.classType]} evoluiu para Nv.${party.heroes[choice.classType].level}!`
+          );
+          feedback = makeFeedback(`${labels[choice.classType]} +1 Nível!`, 'glory');
+        } else {
+          masteryGlory += 2;
+          logs.push(`${currentReward.title}: herói no nível máximo — +2 Maestria.`);
+          feedback = makeFeedback('+2 Maestria bônus', 'glory');
+        }
+      } else if (choice.type === 'relic-step') {
+        const slotIndex = findNextOpenSlotIndex(party, choice.relicId);
+        if (slotIndex >= 0) {
+          const stamped = applyRelicSlotWithEffects({
+            party,
+            relicId: choice.relicId,
+            slotIndex,
+            masteryGlory,
+            claimedPotionMilestones: claimedPotions,
+            claimedGemMilestones: claimedGems,
+            logs,
+          });
+          party = stamped.party;
+          masteryGlory = stamped.masteryGlory;
+          claimedPotions = stamped.claimedPotionMilestones;
+          claimedGems = stamped.claimedGemMilestones;
+          queuedExtra = stamped.queuedRewards;
+          feedback = stamped.feedback;
+        } else {
+          masteryGlory += 2;
+          logs.push(`${currentReward.title}: todas relíquias completas — +2 Maestria.`);
+          feedback = makeFeedback('+2 Maestria bônus', 'glory');
+        }
+      } else if (choice.type === 'gems') {
+        party = collectGem(party, choice.count);
+        logs.push(`${currentReward.title}: +${choice.count} Gemas coletadas!`);
+        const milestones = collectTriggeredMilestones({
+          prevPotionsBrewed,
+          prevGems,
+          party,
+          claimedPotionMilestones: claimedPotions,
+          claimedGemMilestones: claimedGems,
+          logs,
+        });
+        party = milestones.party;
+        claimedPotions = milestones.claimedPotionMilestones;
+        claimedGems = milestones.claimedGemMilestones;
+        queuedExtra = milestones.queuedRewards;
+        feedback = makeFeedback(`+${choice.count} Gemas obtidas!`, 'glory');
+      } else {
+        masteryGlory += 2;
+        logs.push(`${currentReward.title}: +2 Maestria concedida.`);
+        feedback = makeFeedback('+2 Maestria bônus', 'glory');
+      }
+
+      set({
+        history: [...state.history, snapshot],
+        future: [],
+        party,
+        masteryGlory,
+        pendingRewards: [...restRewards, ...queuedExtra],
+        claimedPotionMilestones: claimedPotions,
+        claimedGemMilestones: claimedGems,
+        logs,
+        lastEventFeedback: feedback,
       });
     },
 
@@ -866,6 +1341,9 @@ export const useGameStore = create<GameState>((set, get) => {
         bossGlory: previous.bossGlory,
         bossesDefeated: previous.bossesDefeated,
         bossOutcomes: previous.bossOutcomes,
+        pendingRewards: previous.pendingRewards,
+        claimedPotionMilestones: previous.claimedPotionMilestones,
+        claimedGemMilestones: previous.claimedGemMilestones,
         masteryGlory: previous.masteryGlory,
         artisanCount: previous.artisanCount,
         missions: previous.missions,
@@ -898,6 +1376,9 @@ export const useGameStore = create<GameState>((set, get) => {
         bossGlory: next.bossGlory,
         bossesDefeated: next.bossesDefeated,
         bossOutcomes: next.bossOutcomes,
+        pendingRewards: next.pendingRewards,
+        claimedPotionMilestones: next.claimedPotionMilestones,
+        claimedGemMilestones: next.claimedGemMilestones,
         masteryGlory: next.masteryGlory,
         artisanCount: next.artisanCount,
         missions: next.missions,

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { createInitialParty, levelUpHero, applyPartyDamage, brewPotion, craftItem } from '../../src/engine/heroes';
+import {
+  createInitialParty,
+  levelUpHero,
+  applyPartyDamage,
+  brewPotion,
+  craftItem,
+} from '../../src/engine/heroes';
 import { RELIC_CATALOG } from '../../src/engine/relics';
 
 describe('Hero Party System', () => {
@@ -12,6 +18,7 @@ describe('Hero Party System', () => {
     expect(party.currentHealth).toBe(party.maxHealth);
     expect(party.resurrections).toBe(0);
     expect(party.potions).toBe(0);
+    expect(party.potionsBrewed).toBe(0);
     expect(party.magicItems).toBe(0);
   });
 
@@ -28,22 +35,23 @@ describe('Hero Party System', () => {
     expect(party.currentHealth).toBeGreaterThan(0);
   });
 
-  it('should brew potions and sequentially craft named relics including armadura-yoroi maxHealth bonus', () => {
+  it('should brew 2 potions per action and apply Yoroi +2 maxHealth bonus on craft', () => {
     let party = createInitialParty();
     party = brewPotion(party);
-    expect(party.potions).toBe(1);
+    expect(party.potions).toBe(2);
+    expect(party.potionsBrewed).toBe(2);
 
-    // Craft first 4 relics in RELIC_CATALOG sequentially; 4th is armadura-yoroi
-    for (let i = 0; i < 4; i++) {
-      party = craftItem(party);
+    party = craftItem(party, 'armadura-yoroi');
+    expect(party.magicItems).toBe(1);
+    expect(party.maxHealth).toBe(8);
+    expect(party.currentHealth).toBe(8);
+
+    // Craft remaining relics sequentially
+    for (const relic of RELIC_CATALOG) {
+      if (relic.id !== 'armadura-yoroi') {
+        party = craftItem(party, relic.id);
+      }
     }
-    expect(party.magicItems).toBe(4);
-    expect(party.craftedRelics).toEqual(RELIC_CATALOG.slice(0, 4).map((r) => r.id));
-    expect(party.maxHealth).toBe(7);
-    expect(party.currentHealth).toBe(7);
-
-    // 5th relic completes the catalog
-    party = craftItem(party);
-    expect(party.craftedRelics).toEqual(RELIC_CATALOG.map((r) => r.id));
+    expect(party.craftedRelics).toHaveLength(RELIC_CATALOG.length);
   });
 });

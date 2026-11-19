@@ -1,4 +1,6 @@
 import { FinalScoreBreakdown, HeroParty, MissionCard } from './types';
+import { calculateRelicsGlory } from './relics';
+import { getGemTrackGlory, getMinionTrackGlory } from './tracks';
 
 export interface ScoreInput {
   party: HeroParty;
@@ -7,6 +9,7 @@ export interface ScoreInput {
   bossGlory: number;
   gemsCount: number;
   itemsCrafted: number;
+  itemsGloryOverride?: number;
   missionsGlory?: number;
   masteryGlory?: number;
 }
@@ -65,10 +68,12 @@ export function calculateMissionsGlory(missions: MissionCard[]): number {
 export function calculateFinalGloryScore(input: ScoreInput): FinalScoreBreakdown {
   const {
     party,
-    minionsGlory,
+    minionsDefeatedCount,
+    minionsGlory: legacyMinionsGlory,
     bossGlory,
     gemsCount,
     itemsCrafted,
+    itemsGloryOverride,
     missionsGlory = 0,
     masteryGlory = 0,
   } = input;
@@ -79,8 +84,21 @@ export function calculateFinalGloryScore(input: ScoreInput): FinalScoreBreakdown
     party.heroes.cleric.level +
     party.heroes.rogue.level;
 
-  const gemsGlory = gemsCount * 2;
-  const itemsGlory = itemsCrafted * 2;
+  const minionsGlory =
+    minionsDefeatedCount !== undefined
+      ? getMinionTrackGlory(minionsDefeatedCount)
+      : legacyMinionsGlory;
+
+  const gemsGlory = getGemTrackGlory(gemsCount);
+
+  const relicsGlory = calculateRelicsGlory(party);
+  const itemsGlory =
+    itemsGloryOverride !== undefined
+      ? itemsGloryOverride
+      : relicsGlory > 0
+        ? relicsGlory
+        : itemsCrafted * 2;
+
   const resurrectionPenalties = party.resurrections * 9;
 
   const netGlory =
@@ -103,5 +121,8 @@ export function calculateFinalGloryScore(input: ScoreInput): FinalScoreBreakdown
     masteryGlory,
     resurrectionPenalties,
     netGlory,
+    minionsCount: minionsDefeatedCount,
+    gemsCount,
+    itemsCount: party.craftedRelics?.length ?? itemsCrafted,
   };
 }

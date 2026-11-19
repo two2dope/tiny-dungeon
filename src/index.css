@@ -26,6 +26,15 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @media (pointer: coarse) {
   .touch-target {
     min-width: 44px;

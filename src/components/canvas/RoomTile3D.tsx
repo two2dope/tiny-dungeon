@@ -4,7 +4,9 @@ import { Billboard, Html } from '@react-three/drei';
 import * as THREE from 'three';
 import { BossOutcome, DungeonCoord, HeroParty, RoomState, ThemeId } from '../../engine/types';
 import { getRelevantHeroLevel } from '../../engine/combat';
+import { getPrimaryRoomKind, getRoomContents } from '../../engine/dungeon';
 import { getRelicCount } from '../../engine/relics';
+import { HeroCrestSvg } from '../ui/TacticalIcons';
 import { getSlabTexture } from './proceduralTextures';
 import {
   getStandeeTexture,
@@ -16,20 +18,24 @@ import {
 type BossBoardState = 'dormant' | 'active' | 'defeated' | 'victorious';
 
 function resolveRoomStandeeKind(room: RoomState): StandeeKind | null {
-  if (room.type === 'boss') {
-    return resolveVillainStandeeKind(room.villain?.id);
+  const primary = getPrimaryRoomKind(room);
+  if (primary === 'boss') {
+    const bossItem = getRoomContents(room).find((c) => c.kind === 'boss');
+    const villainId = bossItem?.kind === 'boss' ? bossItem.villain.id : room.villain?.id;
+    return resolveVillainStandeeKind(villainId);
   }
   if (room.cleared) return null;
-  if (room.type === 'minion') {
-    const mId = room.minion?.id;
+  if (primary === 'minion') {
+    const minionItem = getRoomContents(room).find((c) => c.kind === 'minion');
+    const mId = minionItem?.kind === 'minion' ? minionItem.minion.id : room.minion?.id;
     if (mId === 'm_goblin') return 'goblin';
     if (mId === 'm_skeleton') return 'skeleton';
     if (mId === 'm_orc') return 'orc';
     return 'troll';
   }
-  if (room.type === 'gem') return 'gem';
-  if (room.type === 'item') return 'item';
-  if (room.type === 'trap') return 'trap';
+  if (primary === 'gem') return 'gem';
+  if (primary === 'item') return 'item';
+  if (primary === 'trap') return 'trap';
   return null;
 }
 
@@ -71,6 +77,7 @@ interface RoomTile3DProps {
   room: RoomState;
   isCurrent: boolean;
   isValidMove: boolean;
+  canCrossBarriers?: boolean;
   party?: HeroParty;
   currentRound?: number;
   bossOutcomes?: Record<string, BossOutcome>;
@@ -84,6 +91,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
   room,
   isCurrent,
   isValidMove,
+  canCrossBarriers = false,
   party,
   currentRound = 1,
   bossOutcomes = {},
@@ -98,7 +106,8 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
   const pulseRef = useRef<THREE.Mesh>(null);
   const bossRingRef = useRef<THREE.Mesh>(null);
 
-  const isBoss = room.type === 'boss' && Boolean(room.villain);
+  const primaryKind = getPrimaryRoomKind(room);
+  const isBoss = primaryKind === 'boss' && Boolean(room.villain);
   const bossState: BossBoardState | null = isBoss
     ? resolveBossBoardState(room, currentRound, bossOutcomes)
     : null;
@@ -134,13 +143,16 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
   let floorColor = isSengoku ? '#786754' : '#3f4c63';
   if (isCurrent) floorColor = isSengoku ? '#d6b88e' : '#64748b';
   else if (isValidMove) floorColor = isSengoku ? '#b89c72' : '#475569';
-  else if (room.cleared) floorColor = isSengoku ? '#8a7965' : '#334155';
+  else if (room.locked && !canCrossBarriers && !room.cleared) {
+    floorColor = isSengoku ? '#522f2b' : '#312344';
+  } else if (room.cleared) floorColor = isSengoku ? '#8a7965' : '#334155';
 
   const borderColor = isSengoku ? '#4a3a2c' : '#1e293b';
   const highlightColor = isSengoku ? '#fbbf24' : '#38bdf8';
 
   const renderBadge = (): React.ReactNode | null => {
     const moveRing = isValidMove ? 'ring-1 ring-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.65)]' : '';
+    const lockPrefix = room.locked ? (canCrossBarriers ? '🔓 ' : '🔒 ') : '';
 
     if (room.type === 'start') {
       return (
@@ -179,46 +191,76 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
       );
     }
 
-    if (room.cleared || room.type === 'empty') {
+    if (room.cleared || primaryKind === 'empty') {
       return null;
     }
 
-    if (room.type === 'minion' && room.minion) {
-      const relevantLevel = party ? getRelevantHeroLevel(party, room.minion) : 1;
-      const canBeatCleanly = relevantLevel >= room.minion.reqLevel;
+    const contents = getRoomContents(room);
+    const omamoriReduction = party ? getRelicCount(party, 'amuleto-omamori') * 2 : 0;
+
+    const formatSecondaryChip = (entryKind: string): string | null => {
+      const entry = contents.find((c) => c.kind === entryKind);
+      if (!entry) return null;
+      if (entry.kind === 'gem') return `💎${entry.count}`;
+      if (entry.kind === 'trap') {
+        const dmg = Math.max(0, entry.damage - omamoriReduction);
+        return `⚠️-${dmg}♥`;
+      }
+      if (entry.kind === 'potion') return `🧪${entry.count}`;
+      if (entry.kind === 'item') return `✦`;
+      return null;
+    };
+
+    const minionItem = contents.find((c) => c.kind === 'minion');
+    if (primaryKind === 'minion' && minionItem?.kind === 'minion') {
+      const minion = minionItem.minion;
+      const relevantLevel = party ? getRelevantHeroLevel(party, minion) : 1;
+      const canBeatCleanly = relevantLevel >= minion.reqLevel;
+      const extras = ['gem', 'trap', 'potion', 'item']
+        .map(formatSecondaryChip)
+        .filter(Boolean);
 
       return (
         <div
-          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow ${
+          className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow flex items-center gap-1 ${
             canBeatCleanly
               ? 'bg-emerald-950/95 border-emerald-400/80 text-emerald-200'
               : 'bg-red-950/95 border-red-400/85 text-red-100'
           } ${moveRing}`}
         >
-          ⚔️ Nv.{room.minion.reqLevel}
+          {lockPrefix && <span>{lockPrefix.trim()}</span>}
+          <HeroCrestSvg classType={minion.classAffinity ?? 'warrior'} className="w-3.5 h-3.5" />
+          <span>Nv.{minion.reqLevel}</span>
+          {extras.length > 0 && <span className="text-amber-200">• {extras.join(' ')}</span>}
         </div>
       );
     }
 
-    if (room.type === 'gem') {
-      return (
-        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-emerald-950/95 border-emerald-300/80 text-emerald-100 ${moveRing}`}>
-          💎 +{room.gemsCount ?? 1}
-        </div>
-      );
-    }
+    const gemItem = contents.find((c) => c.kind === 'gem');
+    const trapItem = contents.find((c) => c.kind === 'trap');
+    const potionItem = contents.find((c) => c.kind === 'potion');
 
-    if (room.type === 'item') {
+    if (primaryKind === 'item') {
+      const extras = ['gem', 'trap', 'potion'].map(formatSecondaryChip).filter(Boolean);
       return (
         <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-amber-400/95 border-amber-200 text-stone-950 ${moveRing}`}>
-          ✦ +1
+          {lockPrefix}✦ +1{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}
         </div>
       );
     }
 
-    if (room.type === 'trap') {
-      const omamoriReduction = party ? getRelicCount(party, 'amuleto-omamori') : 0;
-      const effectiveDamage = Math.max(0, (room.trapDamage ?? 1) - omamoriReduction);
+    if (primaryKind === 'gem' && gemItem?.kind === 'gem') {
+      const extras = ['trap', 'potion'].map(formatSecondaryChip).filter(Boolean);
+      return (
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-emerald-950/95 border-emerald-300/80 text-emerald-100 ${moveRing}`}>
+          {lockPrefix}💎 +{gemItem.count}{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}
+        </div>
+      );
+    }
+
+    if (primaryKind === 'trap' && trapItem?.kind === 'trap') {
+      const effectiveDamage = Math.max(0, trapItem.damage - omamoriReduction);
+      const extras = ['potion'].map(formatSecondaryChip).filter(Boolean);
       return (
         <div
           className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow ${
@@ -227,7 +269,15 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
               : 'bg-orange-950/95 border-orange-300 text-orange-100'
           } ${moveRing}`}
         >
-          ⚠️ -{effectiveDamage}♥
+          {lockPrefix}⚠️ -{effectiveDamage}♥{extras.length > 0 ? ` • ${extras.join(' ')}` : ''}
+        </div>
+      );
+    }
+
+    if (primaryKind === 'potion' && potionItem?.kind === 'potion') {
+      return (
+        <div className={`px-1.5 py-0.5 rounded border text-[10px] font-mono font-bold whitespace-nowrap shadow bg-teal-950/95 border-teal-300/85 text-teal-100 ${moveRing}`}>
+          {lockPrefix}🧪 +{potionItem.count}
         </div>
       );
     }
@@ -237,7 +287,6 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
 
   const badgeNode = renderBadge();
 
-  // Boss altar visual params per state
   const bossAltarBase =
     bossState === 'active'
       ? isSengoku
@@ -275,7 +324,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         : bossState === 'dormant'
           ? [1.18, 1.48]
           : [1.28, 1.6]
-    : room.type === 'gem' || room.type === 'item' || room.type === 'trap'
+    : primaryKind === 'gem' || primaryKind === 'item' || primaryKind === 'trap'
       ? [0.92, 1.15]
       : [1.06, 1.32];
 
@@ -287,7 +336,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         : bossState === 'dormant'
           ? 0.8
           : 0.88
-    : room.type === 'gem' || room.type === 'item' || room.type === 'trap'
+    : primaryKind === 'gem' || primaryKind === 'item' || primaryKind === 'trap'
       ? 0.64
       : 0.78;
 
@@ -354,7 +403,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
       )}
 
       {/* Cleared seal marker */}
-      {room.cleared && room.type !== 'start' && room.type !== 'boss' && (
+      {room.cleared && room.type !== 'start' && !isBoss && (
         <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.26, 16]} />
           <meshStandardMaterial
@@ -365,24 +414,20 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         </mesh>
       )}
 
-      {/* Gems */}
-      {room.type === 'gem' && !room.cleared && (
+      {!room.cleared && primaryKind === 'gem' && (
         <StandeePedestal color="#10b981" emissive="#059669" />
       )}
-
-      {/* Minions */}
-      {room.type === 'minion' && !room.cleared && (
+      {!room.cleared && primaryKind === 'minion' && (
         <StandeePedestal color="#ef4444" emissive="#b91c1c" />
       )}
-
-      {/* Traps */}
-      {room.type === 'trap' && !room.cleared && (
+      {!room.cleared && primaryKind === 'trap' && (
         <StandeePedestal color="#f97316" emissive="#c2410c" />
       )}
-
-      {/* Magic Items */}
-      {room.type === 'item' && !room.cleared && (
+      {!room.cleared && primaryKind === 'item' && (
         <StandeePedestal color="#f59e0b" emissive="#b45309" />
+      )}
+      {!room.cleared && primaryKind === 'potion' && (
+        <StandeePedestal color="#14b8a6" emissive="#0f766e" />
       )}
 
       {/* Boss Imperial Altar with 4 Visual States */}
@@ -427,7 +472,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         </Billboard>
       )}
 
-      {/* Decluttered objective micro-chip (hidden on empty/cleared tiles) */}
+      {/* Decluttered objective micro-chip */}
       {badgeNode && (
         <Html
           position={

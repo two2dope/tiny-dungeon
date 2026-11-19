@@ -1,5 +1,10 @@
 import { DieColor, DieSymbol, HeroClass, HeroParty, HeroState, RelicId } from './types';
-import { getNextRelicToCraft } from './relics';
+import {
+  getNextRelicToCraft,
+  getRelicById,
+  getRelicSlotProgress,
+  isRelicCompleted,
+} from './relics';
 
 export const MAX_HERO_LEVEL = 6;
 export const DEFAULT_MAX_HEALTH = 6;
@@ -37,9 +42,11 @@ export function createInitialParty(): HeroParty {
     maxHealth: DEFAULT_MAX_HEALTH,
     resurrections: 0,
     potions: 0,
+    potionsBrewed: 0,
     magicItems: 0,
     gems: 0,
     craftedRelics: [],
+    relicProgress: {},
   };
 }
 
@@ -88,10 +95,12 @@ export function healParty(party: HeroParty, amount: number): HeroParty {
   };
 }
 
-export function brewPotion(party: HeroParty): HeroParty {
+export function brewPotion(party: HeroParty, count: number = 2): HeroParty {
+  const safeCount = Math.max(0, Math.floor(count));
   return {
     ...party,
-    potions: party.potions + 1,
+    potions: party.potions + safeCount,
+    potionsBrewed: (party.potionsBrewed ?? 0) + safeCount,
   };
 }
 
@@ -106,23 +115,80 @@ export function usePotion(party: HeroParty): HeroParty {
   };
 }
 
+export function advanceRelicSlot(
+  party: HeroParty,
+  relicId: RelicId,
+  slotIndex: number
+): { party: HeroParty; completedNow: boolean } {
+  const def = getRelicById(relicId);
+  const currentProgress = getRelicSlotProgress(party, relicId);
+  if (slotIndex < 0 || slotIndex >= def.recipe.length || currentProgress[slotIndex]) {
+    return { party, completedNow: false };
+  }
+
+  const nextSlots = [...currentProgress];
+  nextSlots[slotIndex] = true;
+  const nextProgressMap: Partial<Record<RelicId, boolean[]>> = {
+    ...(party.relicProgress ?? {}),
+    [relicId]: nextSlots,
+  };
+
+  const wasCompleted = isRelicCompleted(party, relicId);
+  const nowCompleted = !wasCompleted && nextSlots.every(Boolean);
+  const existingRelics = party.craftedRelics ?? [];
+
+  let updatedParty: HeroParty = {
+    ...party,
+    relicProgress: nextProgressMap,
+  };
+
+  if (nowCompleted) {
+    updatedParty = {
+      ...updatedParty,
+      magicItems: updatedParty.magicItems + 1,
+      craftedRelics: existingRelics.includes(relicId)
+        ? existingRelics
+        : [...existingRelics, relicId],
+    };
+
+    if (relicId === 'armadura-yoroi') {
+      const nextMaxHealth = updatedParty.maxHealth + 2;
+      updatedParty = {
+        ...updatedParty,
+        maxHealth: nextMaxHealth,
+        currentHealth: Math.min(nextMaxHealth, updatedParty.currentHealth + 2),
+      };
+    } else if (relicId === 'cabaca-elixir') {
+      updatedParty = brewPotion(updatedParty, 3);
+    }
+  }
+
+  return { party: updatedParty, completedNow: nowCompleted };
+}
+
 export function craftItem(party: HeroParty, relicId?: RelicId): HeroParty {
   const existingRelics = party.craftedRelics ?? [];
   const chosenId = relicId ?? getNextRelicToCraft(existingRelics);
-  const nextMaxHealth =
-    chosenId === 'armadura-yoroi' ? party.maxHealth + 1 : party.maxHealth;
-  const nextCurrentHealth =
-    chosenId === 'armadura-yoroi'
-      ? Math.min(nextMaxHealth, party.currentHealth + 1)
-      : party.currentHealth;
+  const def = getRelicById(chosenId);
 
-  return {
-    ...party,
-    magicItems: party.magicItems + 1,
-    maxHealth: nextMaxHealth,
-    currentHealth: nextCurrentHealth,
-    craftedRelics: [...existingRelics, chosenId],
-  };
+  if (isRelicCompleted(party, chosenId)) {
+    // Fallback if caller explicitly asks for an already-completed relic
+    return {
+      ...party,
+      magicItems: party.magicItems + 1,
+      craftedRelics: [...existingRelics, chosenId],
+    };
+  }
+
+  let current = party;
+  for (let i = 0; i < def.recipe.length; i++) {
+    const progress = getRelicSlotProgress(current, chosenId);
+    if (!progress[i]) {
+      current = advanceRelicSlot(current, chosenId, i).party;
+    }
+  }
+
+  return current;
 }
 
 export function collectGem(party: HeroParty, count: number = 1): HeroParty {

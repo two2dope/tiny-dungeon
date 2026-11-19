@@ -1,11 +1,25 @@
 import React, { useState } from 'react';
 import { useGameStore } from '../../store/gameStore';
-import { HeroClass, RelicId } from '../../engine/types';
+import { HeroClass, RelicId, RelicRecipeSlot } from '../../engine/types';
 import { HERO_CLOAK_AFFINITY } from '../../engine/heroes';
 import { getCombatPowerBreakdown } from '../../engine/combat';
-import { getRelicById, getRelicCount, RELIC_CATALOG } from '../../engine/relics';
+import {
+  findMatchingSlotIndex,
+  getRelicById,
+  getRelicSlotProgress,
+  isRelicCompleted,
+  RELIC_CATALOG,
+} from '../../engine/relics';
+import {
+  GEM_MILESTONES,
+  getGemTrackGlory,
+  getMinionTrackGlory,
+  POTION_MILESTONES,
+  POTION_TRACK_MAX,
+} from '../../engine/tracks';
+import { calculateFinalGloryScore, calculateMissionsGlory } from '../../engine/scoring';
 import { soundEngine } from '../../audio/soundEngine';
-import { HeroCrestSvg } from './TacticalIcons';
+import { DieSymbolSvg, HeroCrestSvg } from './TacticalIcons';
 import {
   FlaskConical,
   Sparkles,
@@ -13,6 +27,9 @@ import {
   Plus,
   X,
   CheckCircle2,
+  Check,
+  Award,
+  Scroll,
 } from 'lucide-react';
 
 interface EmberLedgerProps {
@@ -40,11 +57,11 @@ const HeroPortraitAvatar: React.FC<HeroPortraitAvatarProps> = ({
   const ringBorder = isSengoku ? 'border-amber-500/85' : 'border-sky-400/70';
 
   if (srcStage === 'crest') {
-    return <HeroCrestSvg classType={classType} className="w-12 h-12" />;
+    return <HeroCrestSvg classType={classType} className="w-9 h-9" />;
   }
 
   return (
-    <div className="relative w-12 h-12 shrink-0">
+    <div className="relative w-9 h-9 shrink-0">
       <img
         src={activeSrc}
         alt={`Retrato de ${name}`}
@@ -54,10 +71,10 @@ const HeroPortraitAvatar: React.FC<HeroPortraitAvatarProps> = ({
             prev === 'primary' && portraitUrl !== fallbackUrl ? 'secondary' : 'crest'
           )
         }
-        className={`w-12 h-12 rounded-md border-2 object-cover shadow-md bg-stone-950 ${ringBorder}`}
+        className={`w-9 h-9 rounded-md border-2 object-cover shadow-md bg-stone-950 ${ringBorder}`}
       />
       <div className="absolute -bottom-1 -right-1 rounded-full bg-stone-950/95 p-0.5 shadow border border-amber-700/60">
-        <HeroCrestSvg classType={classType} className="w-3.5 h-3.5" />
+        <HeroCrestSvg classType={classType} className="w-3 h-3" />
       </div>
     </div>
   );
@@ -67,9 +84,15 @@ interface RelicThumbProps {
   src: string;
   alt: string;
   fallback: React.ReactNode;
+  className?: string;
 }
 
-const RelicThumb: React.FC<RelicThumbProps> = ({ src, alt, fallback }) => {
+const RelicThumb: React.FC<RelicThumbProps> = ({
+  src,
+  alt,
+  fallback,
+  className = 'w-5 h-5 object-contain shrink-0 drop-shadow-sm',
+}) => {
   const [failed, setFailed] = useState(false);
   if (failed) return <>{fallback}</>;
 
@@ -79,24 +102,71 @@ const RelicThumb: React.FC<RelicThumbProps> = ({ src, alt, fallback }) => {
       alt={alt}
       loading="lazy"
       onError={() => setFailed(true)}
-      className="w-7 h-7 object-contain shrink-0 drop-shadow-sm"
+      className={className}
     />
   );
+};
+
+const RecipeSlotBadge: React.FC<{ slot: RelicRecipeSlot; filled: boolean }> = ({
+  slot,
+  filled,
+}) => {
+  const colorStyle: React.CSSProperties =
+    slot.color === 'white'
+      ? { backgroundColor: '#f5f5f4', color: '#1c1917' }
+      : slot.color === 'black'
+        ? { backgroundColor: '#18181b', color: '#fef3c7' }
+        : {
+            background: 'linear-gradient(135deg, #f5f5f4 50%, #18181b 50%)',
+            color: '#fbbf24',
+          };
+
+  return (
+    <span
+      style={colorStyle}
+      title={`Casa: ${slot.color === 'white' ? 'Branco' : slot.color === 'black' ? 'Preto' : 'Branco/Preto'}${
+        slot.symbol ? ` (${slot.symbol})` : ''
+      }`}
+      className={`relative w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+        filled ? 'border-emerald-400 ring-1 ring-emerald-400/70' : 'border-amber-700/70'
+      }`}
+    >
+      {slot.symbol && !filled && (
+        <DieSymbolSvg symbol={slot.symbol} className="w-3 h-3" />
+      )}
+      {filled && (
+        <span className="absolute inset-0 rounded bg-emerald-900/85 flex items-center justify-center">
+          <Check className="w-2.5 h-2.5 text-emerald-300 stroke-[3]" />
+        </span>
+      )}
+    </span>
+  );
+};
+
+const SHORT_MISSION_TITLE: Record<string, string> = {
+  mission_slayer: 'Caçador',
+  mission_artisan: 'Alquimista',
+  mission_explorer: 'Desbravador',
 };
 
 export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => {
   const party = useGameStore((state) => state.party);
   const theme = useGameStore((state) => state.theme);
+  const dicePool = useGameStore((state) => state.dicePool);
+  const selectedDieId = useGameStore((state) => state.selectedDieId);
   const consumedDieIds = useGameStore((state) => state.consumedDieIds);
   const masteryGlory = useGameStore((state) => state.masteryGlory);
+  const bossGlory = useGameStore((state) => state.bossGlory);
   const missions = useGameStore((state) => state.missions);
   const stageLevelUp = useGameStore((state) => state.stageLevelUp);
   const stageBrewPotion = useGameStore((state) => state.stageBrewPotion);
   const stageUsePotion = useGameStore((state) => state.stageUsePotion);
-  const stageCraftItem = useGameStore((state) => state.stageCraftItem);
+  const stageCraftRelic = useGameStore((state) => state.stageCraftRelic);
   const minionsDefeatedCount = useGameStore((state) => state.minionsDefeatedCount);
-  const minionsGlory = useGameStore((state) => state.minionsGlory);
+  const claimedPotionMilestones = useGameStore((state) => state.claimedPotionMilestones);
+  const claimedGemMilestones = useGameStore((state) => state.claimedGemMilestones);
   const [selectedRelicId, setSelectedRelicId] = useState<RelicId | null>(null);
+  const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
   const [relicErrorIds, setRelicErrorIds] = useState<Record<string, boolean>>({});
 
   if (!isOpen) return null;
@@ -105,7 +175,45 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
   const actionsRemaining = Math.max(0, 3 - consumedDieIds.length);
   const isSengoku = theme === 'sengoku';
   const selectedRelic = selectedRelicId ? getRelicById(selectedRelicId) : null;
-  const selectedRelicCount = selectedRelic ? getRelicCount(party, selectedRelic.id) : 0;
+  const expandedMission = expandedMissionId
+    ? missions.find((m) => m.id === expandedMissionId) ?? null
+    : null;
+  const potionsBrewed = party.potionsBrewed ?? 0;
+
+  const availableDice = dicePool.dice.filter((d) => !consumedDieIds.includes(d.id));
+  const selectedDie = selectedDieId
+    ? availableDice.find((d) => d.id === selectedDieId)
+    : undefined;
+
+  const canCraftRelicNow = (relicId: RelicId) => {
+    if (actionsRemaining === 0 || isRelicCompleted(party, relicId)) return false;
+    if (selectedDie) {
+      return findMatchingSlotIndex(party, relicId, selectedDie) >= 0;
+    }
+    return availableDice.some((d) => findMatchingSlotIndex(party, relicId, d) >= 0);
+  };
+
+  const completedRelicsCount = RELIC_CATALOG.filter((r) =>
+    isRelicCompleted(party, r.id)
+  ).length;
+  const gemTrackGlory = getGemTrackGlory(party.gems);
+  const minionTrackGlory = getMinionTrackGlory(minionsDefeatedCount);
+  const liveScore = calculateFinalGloryScore({
+    party,
+    minionsDefeatedCount,
+    minionsGlory: minionTrackGlory,
+    bossGlory,
+    gemsCount: party.gems,
+    itemsCrafted: party.magicItems,
+    missionsGlory: calculateMissionsGlory(missions),
+    masteryGlory,
+  });
+
+  const effectBadge = {
+    permanent: { symbol: '∞', title: 'Bônus permanente' },
+    instant: { symbol: '⚡', title: 'Bônus instantâneo' },
+    ability: { symbol: '✦', title: 'Habilidade permanente' },
+  };
 
   const heroList: {
     classType: HeroClass;
@@ -144,32 +252,67 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
     },
   ];
 
+  const renderPotionMilestoneBadge = (threshold: number) => {
+    if (threshold === 4) {
+      return (
+        <>
+          <HeroCrestSvg classType="warrior" className="w-3.5 h-3.5" />
+          <span>+Nv</span>
+        </>
+      );
+    }
+    if (threshold === 8) {
+      return (
+        <>
+          <RelicThumb
+            src="/assets/ui/icon-item-scroll.webp"
+            alt="Bônus de Forja"
+            className="w-3.5 h-3.5 object-contain shrink-0"
+            fallback={<Sparkles className="w-3 h-3 text-amber-300" />}
+          />
+          <span>Forja</span>
+        </>
+      );
+    }
+    return (
+      <>
+        <RelicThumb
+          src="/assets/ui/icon-gem-magatama.webp"
+          alt="Escolha do Alquimista"
+          className="w-3.5 h-3.5 object-contain shrink-0"
+          fallback={<Gem className="w-3 h-3 text-cyan-300" />}
+        />
+        <Award className="w-3 h-3 text-amber-300 shrink-0" />
+      </>
+    );
+  };
+
   return (
     <aside
       aria-label="The Ember Measure — Comitiva e Missões"
-      className={`fixed inset-y-0 left-0 w-[min(22rem,92vw)] z-40 flex flex-col justify-between overflow-y-auto ${
+      className={`fixed inset-y-0 left-0 w-[min(23.5rem,94vw)] z-40 flex flex-col justify-between overflow-y-auto overflow-x-hidden no-scrollbar ${
         isSengoku
-          ? 'gui-sidebar-panel p-2.5 sm:p-3 text-amber-50'
-          : 'bg-dungeon-bg/95 backdrop-blur-xl border-r border-dungeon-border p-4 sm:p-5 shadow-2xl text-stone-200'
+          ? 'gui-sidebar-panel p-2 text-amber-50'
+          : 'bg-dungeon-bg/95 backdrop-blur-xl border-r border-dungeon-border p-3 shadow-2xl text-stone-200'
       }`}
     >
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {/* Top Banner + Close Action */}
         <div
-          className={`relative flex items-center justify-center rounded-lg px-8 ${
+          className={`relative flex items-center justify-center rounded-lg px-7 ${
             isSengoku
-              ? 'gui-title-banner min-h-[3.25rem] py-1.5'
-              : 'pb-3 border-b border-dungeon-border'
+              ? 'gui-title-banner min-h-[2.35rem] py-1'
+              : 'pb-2 border-b border-dungeon-border'
           }`}
         >
-          <h2 className="text-center font-serif text-[11px] sm:text-xs leading-[1.15] tracking-[0.12em] max-w-[46%] uppercase font-bold text-amber-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
+          <h2 className="text-center font-serif text-[11px] leading-[1.15] tracking-[0.12em] max-w-[54%] uppercase font-bold text-amber-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
             The Ember Measure
           </h2>
           <button
             type="button"
             onClick={onClose}
             aria-label="Fechar Grimório"
-            className="touch-target absolute right-1 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-amber-200/80 hover:text-amber-100"
+            className="touch-target absolute right-1 top-1/2 -translate-y-1/2 p-1 rounded-lg text-amber-200/80 hover:text-amber-100"
           >
             <X className="w-4 h-4" />
           </button>
@@ -177,13 +320,13 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
 
         {/* Party Power, Actions & Mastery */}
         <div
-          className={`px-2.5 py-1.5 rounded-lg border flex items-center justify-between gap-2 tabular-nums ${
+          className={`px-2 py-1 rounded-lg border flex items-center justify-between gap-1.5 tabular-nums ${
             isSengoku
               ? 'bg-[#120d0a]/90 border-amber-800/60 text-amber-100'
               : 'bg-dungeon-surface border-dungeon-border text-stone-200'
           }`}
         >
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             <RelicThumb
               src="/assets/ui/icon-combat-power.webp"
               alt="Poder Bélico"
@@ -191,24 +334,24 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
             />
             <div>
               <span
-                className={`text-[9px] font-mono uppercase block ${
+                className={`text-[8px] font-mono uppercase block leading-none ${
                   isSengoku ? 'text-amber-200/70' : 'text-slate-400'
                 }`}
               >
                 Poder Bélico
               </span>
-              <div className="flex flex-wrap items-baseline gap-1.5">
-                <span className="font-serif text-xl font-bold leading-none text-amber-100">
+              <div className="flex items-baseline gap-1 mt-0.5">
+                <span className="font-serif text-lg font-bold leading-none text-amber-100">
                   {powerBreakdown.partyPower}
                 </span>
                 {powerBreakdown.katanaBonus > 0 && (
-                  <span className="text-[9px] font-mono text-emerald-300">
-                    +{powerBreakdown.katanaBonus} Katana
+                  <span className="text-[8px] font-mono text-emerald-300">
+                    +{powerBreakdown.katanaBonus}K
                   </span>
                 )}
                 {powerBreakdown.sealBonus > 0 && (
-                  <span className="text-[9px] font-mono text-amber-300">
-                    +{powerBreakdown.sealBonus} vs Chefes
+                  <span className="text-[8px] font-mono text-amber-300">
+                    +{powerBreakdown.sealBonus}Ch
                   </span>
                 )}
               </div>
@@ -216,7 +359,7 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
           </div>
 
           <span
-            className={`text-[10px] font-mono px-2 py-0.5 rounded border shrink-0 ${
+            className={`text-[10px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${
               isSengoku
                 ? 'bg-amber-950/80 border-amber-700/50 text-amber-300'
                 : 'bg-slate-900 border-sky-700/60 text-sky-300'
@@ -227,20 +370,20 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
 
           <div className="text-right shrink-0">
             <span
-              className={`text-[9px] font-mono uppercase block ${
+              className={`text-[8px] font-mono uppercase block leading-none ${
                 isSengoku ? 'text-amber-200/70' : 'text-slate-400'
               }`}
             >
               Maestria
             </span>
-            <span className="font-serif text-base font-bold leading-none text-amber-400">
+            <span className="font-serif text-sm font-bold leading-none text-amber-400">
               +{masteryGlory} pts
             </span>
           </div>
         </div>
 
         {/* Heroes */}
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           {heroList.map((hero) => {
             const heroState = party.heroes[hero.classType];
             const isMax = heroState.level >= heroState.maxLevel;
@@ -249,10 +392,10 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
             return (
               <div
                 key={hero.classType}
-                className={`gui-hero-card ${hero.cardClass} p-2 rounded-lg flex flex-col gap-1.5`}
+                className={`gui-hero-card ${hero.cardClass} p-1 rounded-lg flex flex-col gap-1`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
                     <HeroPortraitAvatar
                       classType={hero.classType}
                       name={hero.name}
@@ -261,12 +404,27 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                       isSengoku={isSengoku}
                     />
                     <div className="min-w-0">
-                      <h3 className="font-serif text-sm font-bold leading-tight text-amber-100 truncate">
-                        {hero.name}
-                      </h3>
-                      <p className="text-[10px] font-mono text-amber-200/75">
-                        Nv. {heroState.level}/{heroState.maxLevel} • {cloak === 'white' ? 'Branco' : 'Preto'}
-                      </p>
+                      <div className="flex items-baseline gap-1.5">
+                        <h3 className="font-serif text-xs font-bold leading-tight text-amber-100 truncate">
+                          {hero.name}
+                        </h3>
+                        <span className="text-[9px] font-mono text-amber-200/80 shrink-0">
+                          Nv.{heroState.level}/{heroState.maxLevel} • {cloak === 'white' ? 'Br' : 'Pr'}
+                        </span>
+                      </div>
+                      {/* 6-segment level bar inline below name */}
+                      <div className="flex items-center gap-0.5 mt-1 w-32 sm:w-36">
+                        {Array.from({ length: heroState.maxLevel }).map((_, idx) => (
+                          <div
+                            key={idx}
+                            className={`h-1 flex-1 rounded-sm ${
+                              idx < heroState.level
+                                ? 'bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_4px_rgba(245,158,11,0.45)]'
+                                : 'bg-[#120d0a]/85 border border-amber-900/40'
+                            }`}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                   <button
@@ -276,65 +434,33 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                       stageLevelUp(hero.classType);
                     }}
                     disabled={isMax || actionsRemaining === 0}
-                    className="touch-target gui-btn-crimson flex items-center gap-1 px-2.5 py-1 text-[11px] font-serif font-bold uppercase tracking-wide rounded disabled:opacity-60 disabled:saturate-50 disabled:pointer-events-none shrink-0"
+                    className="touch-target gui-btn-crimson flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-serif font-bold uppercase tracking-wide rounded disabled:opacity-55 disabled:saturate-50 disabled:pointer-events-none shrink-0"
                   >
                     <Plus className="w-3 h-3" />
                     Nível
                   </button>
-                </div>
-
-                {/* 6-segment level bar */}
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: heroState.maxLevel }).map((_, idx) => (
-                    <div
-                      key={idx}
-                      className={`h-1.5 flex-1 rounded-sm border ${
-                        idx < heroState.level
-                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 border-amber-300/70 shadow-[0_0_6px_rgba(245,158,11,0.4)]'
-                          : 'bg-[#120d0a]/80 border-amber-900/40'
-                      }`}
-                    />
-                  ))}
                 </div>
               </div>
             );
           })}
         </div>
 
-        {/* Alchemy & Relics */}
-        <div className={`space-y-1.5 pt-1.5 border-t ${isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'}`}>
-          <h3 className={`text-[11px] font-serif font-bold tracking-wider uppercase ${isSengoku ? 'text-amber-200' : 'text-slate-200'}`}>
-            Poções &amp; Itens
-          </h3>
-          <div className="grid grid-cols-2 gap-1.5 text-xs font-mono">
-            <div
-              className={`p-1.5 rounded-lg flex flex-col justify-between gap-1 ${
-                isSengoku
-                  ? 'gui-parchment-card'
-                  : 'bg-dungeon-surface border border-dungeon-border text-stone-200'
+        {/* Potion Checkboxes & Bonus Icons */}
+        <div
+          className={`space-y-1 pt-1 border-t ${
+            isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-1">
+            <h3
+              className={`text-[10px] font-serif font-bold tracking-wider uppercase flex items-center gap-1 ${
+                isSengoku ? 'text-amber-200' : 'text-slate-200'
               }`}
             >
-              <div className="flex items-center gap-1.5 font-bold">
-                <RelicThumb
-                  src="/assets/ui/icon-potion-gourd.webp"
-                  alt="Poção Alquímica"
-                  fallback={<FlaskConical className="w-4 h-4 text-emerald-600" />}
-                />
-                <span className="tabular-nums">Poções: {party.potions}</span>
-              </div>
-              <button
-                type="button"
-                disabled={actionsRemaining === 0}
-                onClick={() => {
-                  soundEngine.play('potion');
-                  stageBrewPotion();
-                }}
-                className={`touch-target text-[10px] font-bold px-2 py-1 rounded disabled:opacity-65 disabled:saturate-50 ${
-                  isSengoku ? 'gui-parchment-btn' : 'gui-btn-gold'
-                }`}
-              >
-                + Destilar (1 Dado)
-              </button>
+              <FlaskConical className="w-3 h-3 text-emerald-400" />
+              Poções ({party.potions} est. • {Math.min(potionsBrewed, POTION_TRACK_MAX)}/12)
+            </h3>
+            <div className="flex items-center gap-1">
               {party.potions > 0 && party.currentHealth < party.maxHealth && (
                 <button
                   type="button"
@@ -342,95 +468,201 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                     soundEngine.play('potion');
                     stageUsePotion();
                   }}
-                  className="touch-target text-[10px] px-2 py-1 rounded border bg-emerald-800 hover:bg-emerald-700 text-white border-emerald-500 font-bold"
+                  className="text-[9px] px-1.5 py-0.5 rounded border bg-emerald-800 hover:bg-emerald-700 text-white border-emerald-500 font-bold"
                 >
-                  Beber (+2 Vida)
+                  Beber (+2♥)
                 </button>
               )}
-            </div>
-
-            <div
-              className={`p-1.5 rounded-lg flex flex-col justify-between gap-1 ${
-                isSengoku
-                  ? 'gui-parchment-card'
-                  : 'bg-dungeon-surface border border-dungeon-border text-stone-200'
-              }`}
-            >
-              <div className="flex items-center gap-1.5 font-bold">
-                <RelicThumb
-                  src="/assets/ui/icon-item-scroll.webp"
-                  alt="Artefatos Mágicos"
-                  fallback={<Sparkles className="w-4 h-4 text-amber-600" />}
-                />
-                <span className="tabular-nums">Itens: {party.magicItems}</span>
-              </div>
               <button
                 type="button"
                 disabled={actionsRemaining === 0}
                 onClick={() => {
-                  soundEngine.play('sword');
-                  stageCraftItem();
+                  soundEngine.play('potion');
+                  stageBrewPotion();
                 }}
-                className={`touch-target text-[10px] font-bold px-2 py-1 rounded disabled:opacity-65 disabled:saturate-50 ${
-                  isSengoku ? 'gui-parchment-btn' : 'gui-btn-gold'
-                }`}
+                className="gui-btn-gold text-[9px] font-bold px-1.5 py-0.5 rounded disabled:opacity-50 disabled:pointer-events-none"
               >
-                + Forjar (1 Dado)
+                + Destilar (+2)
               </button>
             </div>
           </div>
 
-          {/* 5-Slot Visual Relic Rack (keyboard & touch accessible) */}
+          <div
+            aria-label="Trilha de Poções (marcos em 4, 8 e 12)"
+            className={`px-1.5 py-1 rounded-lg border space-y-1 ${
+              isSengoku
+                ? 'bg-[#120d0a]/90 border-amber-800/60'
+                : 'bg-dungeon-surface border-dungeon-border'
+            }`}
+          >
+            {POTION_MILESTONES.map((milestone, rowIdx) => {
+              const startSlot = rowIdx * 4 + 1;
+              const isClaimed = claimedPotionMilestones.includes(milestone.threshold);
+              return (
+                <div key={milestone.threshold} className="flex items-center justify-between gap-1.5">
+                  <div className="grid grid-cols-4 gap-1 flex-1">
+                    {[0, 1, 2, 3].map((offset) => {
+                      const slotNum = startSlot + offset;
+                      const filled = potionsBrewed >= slotNum;
+                      return (
+                        <div
+                          key={slotNum}
+                          role="checkbox"
+                          aria-checked={filled}
+                          aria-label={`Poção ${slotNum}`}
+                          title={`Poção ${slotNum} (cura +2 Vida)`}
+                          className={`h-4 rounded border flex items-center justify-center ${
+                            filled
+                              ? 'bg-emerald-700/85 border-emerald-400 text-emerald-100'
+                              : 'bg-black/45 border-stone-600/80 text-stone-500'
+                          }`}
+                        >
+                          {filled ? (
+                            <Check className="w-2.5 h-2.5 stroke-[3]" />
+                          ) : (
+                            <span className="text-[8px] font-mono leading-none">{slotNum}</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div
+                    title={milestone.label}
+                    className={`w-16 h-4 rounded border px-1 flex items-center justify-center gap-1 text-[8px] font-mono font-bold shrink-0 ${
+                      isClaimed
+                        ? 'bg-amber-700/75 border-amber-300 text-amber-100'
+                        : 'bg-amber-950/45 border-amber-800/60 text-amber-200/90'
+                    }`}
+                  >
+                    {renderPotionMilestoneBadge(milestone.threshold)}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Forge Workshop — 2-Column Iconic Grid (8 Relics) */}
+        <div
+          className={`space-y-1 pt-1 border-t ${
+            isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h3
+              className={`text-[10px] font-serif font-bold tracking-wider uppercase flex items-center gap-1 ${
+                isSengoku ? 'text-amber-200' : 'text-slate-200'
+              }`}
+            >
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              Oficina de Forja ({completedRelicsCount}/8)
+            </h3>
+            <span className="text-[9px] font-mono text-amber-300/85">
+              {selectedDie
+                ? `Dado: ${selectedDie.color === 'white' ? 'Branco' : 'Preto'}`
+                : 'Toque p/ detalhes'}
+            </span>
+          </div>
+
           <div
             aria-label="Acervo de Relíquias Forjadas"
-            className="grid grid-cols-5 gap-1.5"
+            className="grid grid-cols-2 gap-1"
           >
             {RELIC_CATALOG.map((relic) => {
-              const count = getRelicCount(party, relic.id);
-              const owned = count > 0;
+              const progress = getRelicSlotProgress(party, relic.id);
+              const completed = isRelicCompleted(party, relic.id);
               const isSelected = selectedRelicId === relic.id;
               const imgFailed = Boolean(relicErrorIds[relic.id]);
+              const craftable = canCraftRelicNow(relic.id);
+              const badge = effectBadge[relic.effectKind];
+
               return (
-                <button
+                <div
                   key={relic.id}
-                  type="button"
-                  onClick={() =>
-                    setSelectedRelicId((prev) => (prev === relic.id ? null : relic.id))
-                  }
-                  aria-pressed={isSelected}
-                  aria-label={`${relic.name}: ${owned ? `${count}x equipada` : 'não forjada'}`}
-                  title={`${relic.name} (${relic.shortBonus}) — ${relic.description}`}
-                  className={`relative h-10 rounded-md border flex items-center justify-center p-1 transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-300 ${
-                    owned
+                  className={`rounded-md border p-1 flex flex-col justify-between gap-1 transition-all ${
+                    completed
                       ? isSengoku
-                        ? 'bg-amber-950/75 border-amber-400/90 shadow-[0_0_8px_rgba(251,191,36,0.4)]'
-                        : 'bg-slate-800/90 border-sky-400/80 shadow-[0_0_8px_rgba(56,189,248,0.3)]'
+                        ? 'bg-amber-950/60 border-amber-400/85'
+                        : 'bg-slate-800/85 border-sky-400/80'
                       : isSengoku
-                        ? 'bg-[#120d0a]/80 border-dashed border-amber-900/40'
-                        : 'bg-slate-900/80 border-dashed border-slate-700'
-                  } ${isSelected ? 'ring-2 ring-amber-300' : ''}`}
+                        ? 'bg-[#120d0a]/85 border-amber-900/50'
+                        : 'bg-dungeon-surface border-dungeon-border'
+                  } ${isSelected ? 'ring-1 ring-amber-300' : ''}`}
                 >
-                  {imgFailed ? (
-                    <Sparkles className={`w-5 h-5 ${owned ? 'text-amber-400' : 'text-stone-500 opacity-50'}`} />
-                  ) : (
-                    <img
-                      src={relic.iconUrl}
-                      alt={relic.name}
-                      loading="lazy"
-                      onError={() =>
-                        setRelicErrorIds((prev) => ({ ...prev, [relic.id]: true }))
-                      }
-                      className={`w-7 h-7 object-contain transition-opacity ${
-                        owned ? 'opacity-100 drop-shadow-sm' : 'opacity-30 grayscale'
-                      }`}
-                    />
-                  )}
-                  {count > 1 && (
-                    <span className="absolute -top-1 -right-1 px-1 rounded-full bg-amber-400 text-stone-950 text-[9px] font-mono font-extrabold leading-tight shadow">
-                      ×{count}
-                    </span>
-                  )}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedRelicId((prev) => (prev === relic.id ? null : relic.id))
+                    }
+                    aria-expanded={isSelected}
+                    aria-label={`Detalhes de ${relic.name}: ${relic.shortBonus}`}
+                    className="flex items-center gap-1 min-w-0 text-left"
+                  >
+                    {imgFailed ? (
+                      <Sparkles
+                        className={`w-5 h-5 shrink-0 ${
+                          completed ? 'text-amber-400' : 'text-stone-500'
+                        }`}
+                      />
+                    ) : (
+                      <img
+                        src={relic.iconUrl}
+                        alt={relic.name}
+                        loading="lazy"
+                        onError={() =>
+                          setRelicErrorIds((prev) => ({ ...prev, [relic.id]: true }))
+                        }
+                        className={`w-5 h-5 object-contain shrink-0 ${
+                          completed ? 'opacity-100 drop-shadow-sm' : 'opacity-90'
+                        }`}
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-0.5">
+                        <span className="font-serif text-[10px] font-bold truncate leading-tight">
+                          {relic.name}
+                        </span>
+                        <span title={badge.title} className="text-[9px] text-amber-300 shrink-0">
+                          {badge.symbol}
+                        </span>
+                      </div>
+                      <p className="text-[8px] font-mono opacity-80 truncate leading-tight">
+                        {relic.shortBonus}
+                      </p>
+                    </div>
+                  </button>
+
+                  <div className="flex items-center justify-between gap-1">
+                    <div className="flex items-center gap-0.5">
+                      {relic.recipe.map((slot, slotIdx) => (
+                        <RecipeSlotBadge
+                          key={slotIdx}
+                          slot={slot}
+                          filled={progress[slotIdx]}
+                        />
+                      ))}
+                    </div>
+
+                    {completed ? (
+                      <span className="text-[9px] font-mono font-bold text-emerald-300 px-1">
+                        ✓
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled={!craftable}
+                        onClick={() => {
+                          soundEngine.play('sword');
+                          stageCraftRelic(relic.id);
+                        }}
+                        aria-label={`Forjar ${relic.name}`}
+                        className="gui-btn-gold px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase disabled:opacity-40 disabled:pointer-events-none"
+                      >
+                        Forjar
+                      </button>
+                    )}
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -439,80 +671,139 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
             <div
               role="region"
               aria-live="polite"
-              className={`px-2 py-1.5 rounded-md border text-[10px] ${
+              className={`px-2 py-1 rounded-md border text-[10px] leading-snug ${
                 isSengoku
-                  ? 'bg-[#17100c]/95 border-amber-700/60 text-amber-100'
-                  : 'bg-slate-900/95 border-sky-700/50 text-slate-200'
+                  ? 'bg-[#19100b] border-amber-700/70 text-amber-100'
+                  : 'bg-slate-900 border-sky-700/60 text-slate-200'
               }`}
             >
-              <div className="flex items-center justify-between gap-2">
-                <strong className="font-serif text-[11px]">{selectedRelic.name}</strong>
-                <span className="font-mono text-[9px] opacity-85">
-                  {selectedRelicCount > 0 ? `Equipada ×${selectedRelicCount}` : 'Não forjada'}
-                </span>
-              </div>
-              <p className="leading-snug mt-0.5 opacity-90">{selectedRelic.description}</p>
+              <strong className="font-serif">{selectedRelic.name}: </strong>
+              <span className="opacity-90">{selectedRelic.description}</span>
             </div>
           )}
 
+          {/* Gems, Minions & Live Score Summary */}
           <div
-            className={`flex items-center justify-between px-2 py-1.5 rounded-lg border text-xs font-mono font-bold tabular-nums ${
+            className={`px-2 py-1 rounded-lg border flex items-center justify-between gap-2 text-[10px] font-mono tabular-nums ${
               isSengoku
                 ? 'bg-[#120d0a]/90 border-amber-800/60 text-amber-100'
                 : 'bg-dungeon-surface border-dungeon-border text-stone-200'
             }`}
           >
-            <span className="flex items-center gap-1.5">
-              <RelicThumb
-                src="/assets/ui/icon-gem-magatama.webp"
-                alt="Gemas de Esmeralda"
-                fallback={<Gem className="w-4 h-4 text-cyan-500" />}
-              />
-              Gemas: {party.gems} (+{party.gems * 2})
-            </span>
-            <span className="flex items-center gap-1.5">
-              <RelicThumb
-                src="/assets/ui/icon-oni-skull.webp"
-                alt="Lacaios derrotados"
-                fallback={null}
-              />
-              Lacaios: {minionsDefeatedCount} (+{minionsGlory})
-            </span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex items-center gap-1 font-bold" title="Trilha de Gemas (marcos 3, 6, 9)">
+                <RelicThumb
+                  src="/assets/ui/icon-gem-magatama.webp"
+                  alt="Gemas de Esmeralda"
+                  className="w-4 h-4 object-contain shrink-0"
+                  fallback={<Gem className="w-3.5 h-3.5 text-cyan-500" />}
+                />
+                {party.gems} (+{gemTrackGlory})
+              </span>
+              <span className="flex items-center gap-1 opacity-80">
+                {GEM_MILESTONES.map((gm) => (
+                  <span
+                    key={gm.threshold}
+                    title={gm.label}
+                    className={`px-1 rounded text-[8px] border ${
+                      claimedGemMilestones.includes(gm.threshold) || party.gems >= gm.threshold
+                        ? 'bg-emerald-800/75 border-emerald-400 text-emerald-100'
+                        : 'bg-black/40 border-stone-700 text-stone-400'
+                    }`}
+                  >
+                    {gm.threshold}
+                  </span>
+                ))}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="flex items-center gap-1 font-bold" title="Lacaios derrotados">
+                <RelicThumb
+                  src="/assets/ui/icon-oni-skull.webp"
+                  alt="Lacaios derrotados"
+                  className="w-4 h-4 object-contain shrink-0"
+                  fallback={null}
+                />
+                {minionsDefeatedCount} (+{minionTrackGlory})
+              </span>
+              <span className="text-[10px] font-bold text-amber-300 border-l border-amber-800/60 pl-1.5">
+                {liveScore.netGlory} pts
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Tactical Missions */}
-        <div className={`space-y-1 pt-1.5 border-t ${isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'}`}>
-          <h3 className={`text-[11px] font-serif font-bold tracking-wider uppercase ${isSengoku ? 'text-amber-200' : 'text-slate-200'}`}>
+        {/* Tactical Missions — Compact Click-to-Expand */}
+        <div
+          className={`space-y-1 pt-1 border-t ${
+            isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'
+          }`}
+        >
+          <h3
+            className={`text-[10px] font-serif font-bold tracking-wider uppercase flex items-center gap-1 ${
+              isSengoku ? 'text-amber-200' : 'text-slate-200'
+            }`}
+          >
+            <Scroll className="w-3 h-3 text-amber-400" />
             Missões da Expedição
           </h3>
-          {missions.map((m) => (
+
+          <div className="grid grid-cols-3 gap-1">
+            {missions.map((m) => {
+              const isExpanded = expandedMissionId === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() =>
+                    setExpandedMissionId((prev) => (prev === m.id ? null : m.id))
+                  }
+                  aria-expanded={isExpanded}
+                  aria-label={`Missão ${m.title}`}
+                  className={`px-1.5 py-1 rounded border text-[9px] font-serif font-bold flex items-center justify-between gap-1 transition-all ${
+                    isSengoku
+                      ? 'bg-[#e6cf9f] text-[#2a180d] border-[#8b5e34] hover:brightness-105'
+                      : 'bg-dungeon-surface border-dungeon-border text-stone-200'
+                  } ${m.completed ? 'ring-2 ring-emerald-500' : ''} ${
+                    isExpanded ? 'ring-2 ring-amber-400' : ''
+                  }`}
+                >
+                  <span className="truncate flex items-center gap-0.5">
+                    {m.completed && (
+                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-700 shrink-0" />
+                    )}
+                    {SHORT_MISSION_TITLE[m.id] ?? m.title}
+                  </span>
+                  <span
+                    className={`font-mono font-extrabold shrink-0 ${
+                      isSengoku ? 'text-red-800' : 'text-amber-400'
+                    }`}
+                  >
+                    +{m.rewardGlory}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {expandedMission && (
             <div
-              key={m.id}
-              className={`text-[11px] flex items-start justify-between gap-2 rounded ${
+              role="region"
+              aria-live="polite"
+              className={`px-2 py-1 rounded-md border text-[10px] leading-snug ${
                 isSengoku
-                  ? 'gui-mission-banner px-7 py-1.5'
-                  : 'p-2 border bg-dungeon-surface border-dungeon-border text-stone-200'
-              } ${m.completed ? 'ring-2 ring-emerald-500' : ''}`}
+                  ? 'bg-[#e8d2a6] border-[#8b5e34] text-[#2a180d]'
+                  : 'bg-dungeon-surface border-sky-700/60 text-stone-200'
+              }`}
             >
-              <div>
-                <div className="font-serif font-bold leading-tight flex items-center gap-1">
-                  {m.completed && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
-                  <span>{m.title}</span>
-                </div>
-                <p className={`text-[10px] leading-tight ${isSengoku ? 'text-[#3c2718]' : 'opacity-75'}`}>
-                  {m.description}
-                </p>
+              <div className="flex items-center justify-between font-serif font-bold">
+                <span>{expandedMission.title}</span>
+                <span className="font-mono text-red-800">+{expandedMission.rewardGlory} Glória</span>
               </div>
-              <span
-                className={`font-mono font-extrabold shrink-0 ${
-                  isSengoku ? 'text-red-800' : 'text-amber-500'
-                }`}
-              >
-                +{m.rewardGlory}
-              </span>
+              <p className="opacity-90 mt-0.5">{expandedMission.description}</p>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </aside>

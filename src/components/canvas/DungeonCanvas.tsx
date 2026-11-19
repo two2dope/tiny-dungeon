@@ -3,15 +3,26 @@ import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { EventFeedback, useGameStore } from '../../store/gameStore';
-import { formatCoordLabel, getMapDimensions, getShortestPath, getValidMoves } from '../../engine/dungeon';
+import {
+  formatCoordLabel,
+  getMapDimensions,
+  getPortalDestination,
+  getRoomContents,
+  getShortestPath,
+  getValidMoves,
+} from '../../engine/dungeon';
 import { getRelevantHeroLevel } from '../../engine/combat';
 import { RoomTile3D } from './RoomTile3D';
 import { Walls3D } from './Walls3D';
 import { PartyPawn3D } from './PartyPawn3D';
 import { TorchLight } from './TorchLight';
 import { Environment360 } from './Environment360';
-import { DungeonCoord, RoomState, ThemeId } from '../../engine/types';
-import { getRelicCount } from '../../engine/relics';
+import { DungeonCoord, HeroClass, RoomState, ThemeId } from '../../engine/types';
+import {
+  getMovementBonusSteps,
+  getRelicCount,
+  hasBarrierCrossingAbility,
+} from '../../engine/relics';
 import { soundEngine } from '../../audio/soundEngine';
 
 const AmbientMotes: React.FC<{ theme: ThemeId; isPaused: boolean }> = ({ theme, isPaused }) => {
@@ -63,6 +74,29 @@ const TacticalPath3D: React.FC<{ path: DungeonCoord[]; tileSize: number }> = ({
         const to = path[idx + 1];
         const dx = to.x - from.x;
         const dz = to.y - from.y;
+        const isPortalJump = Math.abs(dx) + Math.abs(dz) > 1;
+
+        if (isPortalJump) {
+          return (
+            <group key={`portal-seg-${idx}`}>
+              <mesh
+                position={[from.x * tileSize, 0.16, from.y * tileSize]}
+                rotation={[-Math.PI / 2, 0, 0]}
+              >
+                <ringGeometry args={[0.55, 0.72, 24]} />
+                <meshBasicMaterial color="#2dd4bf" transparent opacity={0.95} side={THREE.DoubleSide} />
+              </mesh>
+              <mesh
+                position={[to.x * tileSize, 0.16, to.y * tileSize]}
+                rotation={[-Math.PI / 2, 0, 0]}
+              >
+                <ringGeometry args={[0.55, 0.72, 24]} />
+                <meshBasicMaterial color="#fbbf24" transparent opacity={0.95} side={THREE.DoubleSide} />
+              </mesh>
+            </group>
+          );
+        }
+
         const midX = ((from.x + to.x) / 2) * tileSize;
         const midZ = ((from.y + to.y) / 2) * tileSize;
         const rotY = Math.atan2(dx, dz);
@@ -181,21 +215,18 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
   const party = useGameStore((state) => state.party);
   const currentRound = useGameStore((state) => state.currentRound);
   const bossOutcomes = useGameStore((state) => state.bossOutcomes);
-  const dicePool = useGameStore((state) => state.dicePool);
-  const selectedDieId = useGameStore((state) => state.selectedDieId);
   const consumedDieIds = useGameStore((state) => state.consumedDieIds);
   const theme = useGameStore((state) => state.theme);
   const lastEventFeedback = useGameStore((state) => state.lastEventFeedback);
 
-  const selectedDie = dicePool.dice.find((d) => d.id === selectedDieId);
-  const hasMovementDie = selectedDie && selectedDie.symbol === 'boot';
   const canAct = consumedDieIds.length < 3;
-  const steps = hasMovementDie ? 2 : 1;
+  const steps = 2 + getMovementBonusSteps(party);
+  const canCrossBarriers = hasBarrierCrossingAbility(party);
 
   const validMoves = useMemo(() => {
     if (!canAct) return [];
-    return getValidMoves(dungeon, dungeon.currentCoord, steps);
-  }, [dungeon, steps, canAct]);
+    return getValidMoves(dungeon, dungeon.currentCoord, steps, { canCrossBarriers });
+  }, [dungeon, steps, canAct, canCrossBarriers]);
 
   const tileSize = 2.6;
   const { cols, rows } = getMapDimensions(dungeon);
@@ -208,8 +239,10 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
       (m) => m.x === hoveredRoom.coord.x && m.y === hoveredRoom.coord.y
     );
     if (!isTargetValid) return [];
-    return getShortestPath(dungeon, dungeon.currentCoord, hoveredRoom.coord, steps);
-  }, [dungeon, hoveredRoom, validMoves, canAct, steps]);
+    return getShortestPath(dungeon, dungeon.currentCoord, hoveredRoom.coord, steps, {
+      canCrossBarriers,
+    });
+  }, [dungeon, hoveredRoom, validMoves, canAct, steps, canCrossBarriers]);
 
   const handleSelectTile = useCallback(
     (coord: DungeonCoord) => {
@@ -237,6 +270,8 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
         intensity={theme === 'sengoku' ? 2.45 : 2.4}
         color={theme === 'sengoku' ? '#ffedd5' : '#f8fafc'}
         castShadow
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
         shadow-camera-left={-22}
         shadow-camera-right={22}
         shadow-camera-top={22}
@@ -289,6 +324,7 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
             party={party}
             currentRound={currentRound}
             bossOutcomes={bossOutcomes}
+            canCrossBarriers={canCrossBarriers}
             theme={theme}
             isPaused={isPaused}
             onHover={onHoverRoom}
@@ -297,7 +333,14 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
         );
       })}
 
-      <Walls3D walls={dungeon.walls} cols={cols} rows={rows} theme={theme} />
+      <Walls3D
+        walls={dungeon.walls}
+        portals={dungeon.portals}
+        canCrossBarriers={canCrossBarriers}
+        cols={cols}
+        rows={rows}
+        theme={theme}
+      />
       <TacticalPath3D path={tacticalPath} tileSize={tileSize} />
       <PartyPawn3D coord={dungeon.currentCoord} theme={theme} isPaused={isPaused} />
       <ActionBurst3D
@@ -317,10 +360,14 @@ interface DungeonCanvasProps {
 export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = false }) => {
   const stageMove = useGameStore((state) => state.stageMove);
   const theme = useGameStore((state) => state.theme);
+  const dungeon = useGameStore((state) => state.dungeon);
   const party = useGameStore((state) => state.party);
   const currentRound = useGameStore((state) => state.currentRound);
   const bossOutcomes = useGameStore((state) => state.bossOutcomes);
   const [hoveredRoom, setHoveredRoom] = useState<RoomState | null>(null);
+  const [contextLost, setContextLost] = useState(false);
+  const [canvasKey, setCanvasKey] = useState(0);
+  const [canvasEl, setCanvasEl] = useState<HTMLCanvasElement | null>(null);
   const [isPaused, setIsPaused] = useState(
     typeof document !== 'undefined' ? document.hidden : false
   );
@@ -331,6 +378,23 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, []);
+
+  useEffect(() => {
+    if (!canvasEl) return;
+    const onLost = (e: Event) => {
+      e.preventDefault();
+      setContextLost(true);
+    };
+    const onRestored = () => {
+      setContextLost(false);
+    };
+    canvasEl.addEventListener('webglcontextlost', onLost);
+    canvasEl.addEventListener('webglcontextrestored', onRestored);
+    return () => {
+      canvasEl.removeEventListener('webglcontextlost', onLost);
+      canvasEl.removeEventListener('webglcontextrestored', onRestored);
+    };
+  }, [canvasEl]);
 
   const isWebGLAvailable = () => {
     if (typeof window === 'undefined') return false;
@@ -360,6 +424,11 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
 
   const getRoomPreviewText = (room: RoomState) => {
     const label = formatCoordLabel(room.coord);
+    const canCross = hasBarrierCrossingAbility(party);
+    const portalDest = getPortalDestination(dungeon, room.coord);
+    const portalSuffix = portalDest ? ` • 🌀 Saída ↔ ${formatCoordLabel(portalDest)}` : '';
+    const lockPrefix = room.locked && !canCross ? '🔒 Sala Trancada (Gancho Kaginawa) • ' : '';
+
     if (room.type === 'boss' && room.villain) {
       const outcome = bossOutcomes[room.villain.id];
       const statusText =
@@ -370,35 +439,64 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
             : currentRound === room.villain.round
               ? 'ATIVO nesta rodada!'
               : `Adormecido — desperta na Rodada ${room.villain.round}`;
-      return `${label} • Chefe ${room.villain.name} (${statusText} • Poder ${room.villain.tier1Power}/${room.villain.tier2Power})`;
+      return `${label} • Chefe ${room.villain.name} (${statusText} • Poder ${room.villain.tier1Power}/${room.villain.tier2Power})${portalSuffix}`;
     }
-    if (room.cleared) return `${label} • Câmara já explorada`;
-    if (room.type === 'minion' && room.minion) {
-      const relevantLevel = getRelevantHeroLevel(party, room.minion);
-      const meetsReq = relevantLevel >= room.minion.reqLevel;
-      const combatHint = meetsReq ? 'Sem dano' : `-${room.minion.damage} Vida se abaixo`;
-      return `${label} • ${room.minion.name} (Nv.${room.minion.reqLevel} • +${room.minion.glory} Glória • ${combatHint})`;
+    if (room.cleared) return `${label} • Câmara já explorada${portalSuffix}`;
+
+    const heroLabels: Record<HeroClass, string> = {
+      warrior: 'Guerreiro',
+      mage: 'Mago',
+      cleric: 'Clérigo',
+      rogue: 'Ladino',
+    };
+    const contents = getRoomContents(room);
+    if (contents.length === 0) {
+      return `${label} • ${lockPrefix}Câmara Vazia${portalSuffix}`;
     }
-    if (room.type === 'gem') return `${label} • Veio de Gemas (+${room.gemsCount ?? 1} gemas)`;
-    if (room.type === 'trap') {
-      const reduction = getRelicCount(party, 'amuleto-omamori');
-      const effectiveDamage = Math.max(0, (room.trapDamage ?? 1) - reduction);
-      return `${label} • Armadilha (${effectiveDamage} de dano)`;
-    }
-    if (room.type === 'item') return `${label} • Arca de Relíquia (+2 Glória + Bônus)`;
-    return `${label} • Câmara Vazia`;
+
+    const parts = contents.map((entry) => {
+      if (entry.kind === 'minion') {
+        const relevantLevel = getRelevantHeroLevel(party, entry.minion);
+        const meetsReq = relevantLevel >= entry.minion.reqLevel;
+        const classLabel = entry.minion.classAffinity
+          ? `${heroLabels[entry.minion.classAffinity]} `
+          : '';
+        const combatHint = meetsReq
+          ? 'Sem dano ✓'
+          : `Seu Nv.${relevantLevel}: -${entry.minion.damage}♥`;
+        return `${entry.minion.name} (${classLabel}Nv.${entry.minion.reqLevel} • ${combatHint})`;
+      }
+      if (entry.kind === 'gem') return `💎 +${entry.count} Gema(s)`;
+      if (entry.kind === 'trap') {
+        const reduction = getRelicCount(party, 'amuleto-omamori') * 2;
+        const effectiveDamage = Math.max(0, entry.damage - reduction);
+        return `⚠️ Armadilha (-${effectiveDamage}♥)`;
+      }
+      if (entry.kind === 'potion') return `🧪 +${entry.count} Poção(ões)`;
+      if (entry.kind === 'item') return `✦ Forja Gratuita (+1 casa)`;
+      return '';
+    });
+
+    return `${label} • ${lockPrefix}${parts.filter(Boolean).join(' + ')}${portalSuffix}`;
   };
 
   return (
-    <div className="w-full h-full relative cursor-grab active:cursor-grabbing">
+    <div
+      className={`w-full h-full relative cursor-grab active:cursor-grabbing ${
+        theme === 'sengoku' ? 'bg-[#141822]' : 'bg-[#182030]'
+      }`}
+    >
       <Canvas
+        key={canvasKey}
         shadows
+        dpr={[1, 1.5]}
         frameloop={isPaused ? 'demand' : 'always'}
         camera={{ position: [10, 14, 10], fov: 38 }}
-        gl={{ antialias: true, alpha: false }}
+        gl={{ antialias: true, alpha: false, powerPreference: 'default' }}
         onCreated={({ gl, scene }) => {
           gl.setClearColor(clearColor);
           scene.fog = null;
+          setCanvasEl(gl.domElement);
         }}
       >
         <color attach="background" args={[clearColor]} />
@@ -419,11 +517,32 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
         />
       </Canvas>
 
+      {contextLost && (
+        <div
+          role="alert"
+          className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 bg-[#141822]/95 text-amber-100 p-4 text-center"
+        >
+          <p className="font-mono text-xs sm:text-sm text-amber-200/90 max-w-sm">
+            O contexto gráfico 3D (WebGL) foi interrompido pelo navegador.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setContextLost(false);
+              setCanvasKey((k) => k + 1);
+            }}
+            className="touch-target gui-btn-crimson px-4 py-2 rounded-lg font-serif font-bold text-xs uppercase tracking-wider"
+          >
+            Recarregar Cena 3D
+          </button>
+        </div>
+      )}
+
       {hoveredRoom && (
         <div
           aria-live="polite"
           className={`pointer-events-none absolute top-[4.75rem] ${
-            isLedgerOpen ? 'left-1/2 lg:left-[calc(50%+11rem)]' : 'left-1/2'
+            isLedgerOpen ? 'left-1/2 lg:left-[calc(50%+11.75rem)]' : 'left-1/2'
           } -translate-x-1/2 z-20 px-3.5 py-1.5 rounded-full bg-[#120e14]/90 border border-amber-500/45 text-xs font-mono text-amber-200 shadow-xl backdrop-blur-md whitespace-nowrap transition-[left] duration-200`}
         >
           {getRoomPreviewText(hoveredRoom)}

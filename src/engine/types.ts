@@ -24,12 +24,31 @@ export type HeroClass = 'warrior' | 'mage' | 'cleric' | 'rogue';
 
 export type RelicId =
   | 'katana-masamune'
+  | 'selo-onmyo'
   | 'amuleto-omamori'
-  | 'espelho-yata'
+  | 'gancho-kaginawa'
+  | 'sandalias-waraji'
   | 'armadura-yoroi'
-  | 'selo-onmyo';
+  | 'cabaca-elixir'
+  | 'espelho-yata';
+
+export interface RelicRecipeSlot {
+  color: DieColor | 'any';
+  symbol?: DieSymbol;
+}
+
+export type RelicEffectKind = 'permanent' | 'instant' | 'ability';
 
 export type BossOutcome = 'defeated' | 'victorious';
+
+export type PendingRewardKind = 'choose-hero-level' | 'choose-relic-step' | 'choose-any';
+
+export interface PendingReward {
+  id: string;
+  source: string;
+  title: string;
+  kind: PendingRewardKind;
+}
 
 export interface HeroState {
   classType: HeroClass;
@@ -43,9 +62,11 @@ export interface HeroParty {
   maxHealth: number;
   resurrections: number;
   potions: number;
+  potionsBrewed?: number;
   magicItems: number;
   gems: number;
   craftedRelics?: RelicId[];
+  relicProgress?: Partial<Record<RelicId, boolean[]>>;
 }
 
 export interface DungeonCoord {
@@ -53,7 +74,33 @@ export interface DungeonCoord {
   y: number;
 }
 
-export type RoomContentType = 'empty' | 'start' | 'minion' | 'trap' | 'gem' | 'item' | 'boss';
+export type EdgeSide = 'north' | 'south' | 'east' | 'west';
+
+export interface EdgePortal {
+  id: string;
+  a: DungeonCoord;
+  aSide: EdgeSide;
+  b: DungeonCoord;
+  bSide: EdgeSide;
+}
+
+export type RoomContentType =
+  | 'empty'
+  | 'start'
+  | 'minion'
+  | 'trap'
+  | 'gem'
+  | 'item'
+  | 'potion'
+  | 'boss';
+
+export type RoomContentItem =
+  | { kind: 'minion'; minion: Minion }
+  | { kind: 'trap'; damage: number }
+  | { kind: 'gem'; count: number }
+  | { kind: 'item' }
+  | { kind: 'potion'; count: number }
+  | { kind: 'boss'; villain: Villain };
 
 export interface Minion {
   id: string;
@@ -84,11 +131,14 @@ export interface RoomState {
   villain?: Villain;
   trapDamage?: number;
   gemsCount?: number;
+  contents?: RoomContentItem[];
+  locked?: boolean;
 }
 
 export interface Wall {
   from: DungeonCoord;
   to: DungeonCoord;
+  sealed?: boolean;
   blocks: (a: DungeonCoord, b: DungeonCoord) => boolean;
 }
 
@@ -101,6 +151,7 @@ export interface DungeonMap {
   currentCoord: DungeonCoord;
   rooms: Record<string, RoomState>;
   walls: Wall[];
+  portals?: EdgePortal[];
   visitedCoords: DungeonCoord[];
 }
 
@@ -122,4 +173,7 @@ export interface FinalScoreBreakdown {
   masteryGlory?: number;
   resurrectionPenalties: number;
   netGlory: number;
+  minionsCount?: number;
+  gemsCount?: number;
+  itemsCount?: number;
 }

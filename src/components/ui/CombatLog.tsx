@@ -39,7 +39,7 @@ export const CombatLog: React.FC = () => {
         role="log"
         aria-live="polite"
         aria-relevant="additions"
-        className={`overflow-y-auto space-y-1 my-1 pr-1 text-[11px] font-mono select-text ${
+        className={`overflow-y-auto overflow-x-hidden no-scrollbar space-y-1 my-1 pr-1 text-[11px] font-mono select-text ${
           isSengoku ? 'px-1.5 py-0.5 text-[#24160d] font-medium' : 'text-stone-300'
         }`}
       >

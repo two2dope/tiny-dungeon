@@ -17,6 +17,10 @@ describe('Combat System', () => {
     const outcome = resolveMinionEncounter(party, minion);
     expect(outcome.woundsTaken).toBe(1);
     expect(outcome.gloryEarned).toBe(2);
+
+    // Armadura Yoroi reduces minion wounds by 1
+    const armored = craftItem(party, 'armadura-yoroi');
+    expect(resolveMinionEncounter(armored, minion).woundsTaken).toBe(0);
   });
 
   it('should resolve minion fight with 0 wounds if hero meets or exceeds level', () => {
@@ -30,7 +34,6 @@ describe('Combat System', () => {
 
   it('should resolve villain battle with tier 1 victory when party power meets high threshold', () => {
     let party = createInitialParty();
-    // 4 heroes at level 1 = power 4. Level up warrior to 3 and mage to 2 = power 7
     party = levelUpHero(party, 'warrior');
     party = levelUpHero(party, 'warrior');
     party = levelUpHero(party, 'mage');
@@ -71,17 +74,17 @@ describe('Combat System', () => {
     expect(outcome.woundsTaken).toBe(4);
   });
 
-  it('adds +1 party power from katana-masamune and +1 boss power from selo-onmyo', () => {
+  it('adds +2 party power from katana-masamune and +2 boss power from selo-onmyo', () => {
     let party = createInitialParty(); // base 4
     expect(calculatePartyPower(party)).toBe(4);
 
     party = craftItem(party, 'katana-masamune');
-    expect(calculatePartyPower(party)).toBe(5);
-    expect(calculateBossPower(party)).toBe(5);
+    expect(calculatePartyPower(party)).toBe(6);
+    expect(calculateBossPower(party)).toBe(6);
 
     party = craftItem(party, 'selo-onmyo');
-    expect(calculatePartyPower(party)).toBe(5);
-    expect(calculateBossPower(party)).toBe(6);
+    expect(calculatePartyPower(party)).toBe(6);
+    expect(calculateBossPower(party)).toBe(8);
 
     const manticore: Villain = {
       id: 'v_manticore',
@@ -95,19 +98,27 @@ describe('Combat System', () => {
     };
 
     const outcome = resolveVillainBattle(party, manticore);
-    expect(outcome.partyPower).toBe(6);
+    expect(outcome.partyPower).toBe(8);
     expect(outcome.tier).toBe(1);
     expect(outcome.gloryEarned).toBe(8);
 
     const breakdown = getCombatPowerBreakdown(party);
     expect(breakdown).toEqual({
       heroLevels: 4,
-      katanaBonus: 1,
-      sealBonus: 1,
-      partyPower: 5,
-      bossPower: 6,
+      katanaBonus: 2,
+      sealBonus: 2,
+      partyPower: 6,
+      bossPower: 8,
     });
-    expect(getRelevantHeroLevel(levelUpHero(party, 'rogue'), { id: 'm', name: 'M', reqLevel: 2, glory: 2, damage: 1 })).toBe(2);
-    expect(getRelevantHeroLevel(levelUpHero(party, 'rogue'), { id: 'm', name: 'M', reqLevel: 2, glory: 2, damage: 1, classAffinity: 'warrior' })).toBe(1);
+    expect(
+      getRelevantHeroLevel(party, {
+        id: 'm',
+        name: 'Oni',
+        reqLevel: 2,
+        glory: 2,
+        damage: 1,
+        classAffinity: 'cleric',
+      })
+    ).toBe(1);
   });
 });

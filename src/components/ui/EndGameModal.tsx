@@ -45,10 +45,10 @@ export const EndGameModal: React.FC = () => {
     ctx.fillStyle = '#e7e5e4';
     ctx.font = '20px monospace';
     const rows = [
-      `Monstros Derrotados: +${finalScore.minionsGlory}`,
+      `Monstros Derrotados${finalScore.minionsCount !== undefined ? ` (${finalScore.minionsCount})` : ''}: +${finalScore.minionsGlory}`,
       `Chefes Vencidos (${bossesDefeated.length}): +${finalScore.bossesGlory}`,
-      `Gemas Preciosas: +${finalScore.gemsGlory}`,
-      `Artefatos Mágicos: +${finalScore.itemsGlory}`,
+      `Gemas Preciosas${finalScore.gemsCount !== undefined ? ` (${finalScore.gemsCount})` : ''}: +${finalScore.gemsGlory}`,
+      `Relíquias & Forja${finalScore.itemsCount !== undefined ? ` (${finalScore.itemsCount}/8)` : ''}: +${finalScore.itemsGlory}`,
       `Níveis dos Heróis: +${finalScore.heroLevelsGlory}`,
       `Missões & Maestria: +${(finalScore.missionsGlory ?? 0) + (finalScore.masteryGlory ?? 0)}`,
       `Penalidades de Ressurreição: -${finalScore.resurrectionPenalties}`,
@@ -132,7 +132,8 @@ export const EndGameModal: React.FC = () => {
         >
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Sword className="w-4 h-4 text-orange-600" /> Monstros
+              <Sword className="w-4 h-4 text-orange-600" /> Lacaios{' '}
+              {finalScore.minionsCount !== undefined ? `(${finalScore.minionsCount})` : ''}
             </span>
             <span className="font-bold">+{finalScore.minionsGlory} pts</span>
           </div>
@@ -144,13 +145,15 @@ export const EndGameModal: React.FC = () => {
           </div>
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Gem className="w-4 h-4 text-emerald-700" /> Gemas
+              <Gem className="w-4 h-4 text-emerald-700" /> Gemas{' '}
+              {finalScore.gemsCount !== undefined ? `(${finalScore.gemsCount})` : ''}
             </span>
             <span className="font-bold">+{finalScore.gemsGlory} pts</span>
           </div>
           <div className="flex items-center justify-between">
             <span className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-amber-700" /> Artefatos
+              <Sparkles className="w-4 h-4 text-amber-700" /> Relíquias{' '}
+              {finalScore.itemsCount !== undefined ? `(${finalScore.itemsCount}/8)` : ''}
             </span>
             <span className="font-bold">+{finalScore.itemsGlory} pts</span>
           </div>

@@ -194,12 +194,15 @@ def main() -> None:
         # Crests
         ("Sengoku_clan_medallion_icon_5da252db.jpg", "crest-sengoku-mon.webp", 128),
         ("Katana_blades_and_kabuto_crest_51df0415.jpg", "icon-combat-power.webp", 128),
-        # 5 craftable Sengoku relics + Rogue carved-bone die face
+        # 8 craftable Sengoku relics + Rogue carved-bone die face
         ("Relic_katana_masamune_icon.png", "relic-katana.webp", 128),
         ("Relic_omamori_amulet_icon.png", "relic-omamori.webp", 128),
         ("Relic_yata_mirror_icon.png", "relic-mirror.webp", 128),
         ("Relic_yoroi_armor_icon.png", "relic-armor.webp", 128),
         ("Relic_onmyo_seal_icon.png", "relic-seal.webp", 128),
+        ("Relic_kaginawa_hook_icon.png", "relic-kaginawa.webp", 128),
+        ("Relic_waraji_boots_icon.png", "relic-waraji.webp", 128),
+        ("Relic_elixir_gourd_icon.png", "relic-elixir.webp", 128),
         ("Die_face_rogue_kunai_key.png", "die-face-rogue.webp", 160),
     ]
 

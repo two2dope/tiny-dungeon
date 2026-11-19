@@ -5,6 +5,7 @@ import { EmberLedger } from './components/ui/EmberLedger';
 import { DiceTray } from './components/ui/DiceTray';
 import { CombatLog } from './components/ui/CombatLog';
 import { BossDuelModal } from './components/ui/BossDuelModal';
+import { MilestoneRewardModal } from './components/ui/MilestoneRewardModal';
 import { EndGameModal } from './components/ui/EndGameModal';
 import { useGameStore } from './store/gameStore';
 import { soundEngine } from './audio/soundEngine';
@@ -22,6 +23,7 @@ export default function App() {
   const theme = useGameStore((state) => state.theme);
   const lastEventFeedback = useGameStore((state) => state.lastEventFeedback);
   const pendingBossEncounter = useGameStore((state) => state.pendingBossEncounter);
+  const pendingRewards = useGameStore((state) => state.pendingRewards);
   const undo = useGameStore((state) => state.undo);
   const redo = useGameStore((state) => state.redo);
   const confirmRound = useGameStore((state) => state.confirmRound);
@@ -97,7 +99,7 @@ export default function App() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (pendingBossEncounter) return;
+      if (pendingBossEncounter || pendingRewards.length > 0) return;
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (
         tag === 'INPUT' ||
@@ -117,7 +119,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [undo, redo, confirmRound, pendingBossEncounter]);
+  }, [undo, redo, confirmRound, pendingBossEncounter, pendingRewards.length]);
 
   return (
     <main
@@ -148,7 +150,7 @@ export default function App() {
         <div
           aria-live="polite"
           className={`pointer-events-none fixed top-[6.75rem] left-1/2 ${
-            isLedgerOpen ? 'lg:left-[calc(50%+11rem)]' : ''
+            isLedgerOpen ? 'lg:left-[calc(50%+11.75rem)]' : ''
           } -translate-x-1/2 z-30 px-3.5 py-1 rounded-full text-xs font-mono border shadow-lg backdrop-blur-md transition-[left] duration-200 ${
             lastEventFeedback.tone === 'damage'
               ? 'bg-red-950/90 border-red-500/60 text-red-200'
@@ -165,7 +167,7 @@ export default function App() {
 
       <footer
         className={`w-full flex flex-col sm:flex-row items-center sm:items-end justify-between gap-2 px-3 sm:px-6 ${
-          isLedgerOpen ? 'lg:pl-[23rem]' : ''
+          isLedgerOpen ? 'lg:pl-[24.5rem]' : ''
         } pb-3 sm:pb-5 z-20 pointer-events-none transition-[padding] duration-200`}
       >
         <div
@@ -188,6 +190,7 @@ export default function App() {
       </footer>
 
       <BossDuelModal />
+      <MilestoneRewardModal />
       <EndGameModal />
     </main>
   );

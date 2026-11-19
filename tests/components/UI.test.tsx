@@ -5,6 +5,7 @@ import { HUD } from '../../src/components/ui/HUD';
 import { EmberLedger } from '../../src/components/ui/EmberLedger';
 import { CombatLog } from '../../src/components/ui/CombatLog';
 import { BossDuelModal } from '../../src/components/ui/BossDuelModal';
+import { MilestoneRewardModal } from '../../src/components/ui/MilestoneRewardModal';
 import { useGameStore } from '../../src/store/gameStore';
 import {
   getCourtyardFadeTexture,
@@ -41,7 +42,7 @@ describe('UI Components with Illustrated GUI Skin', () => {
     expect(screen.getByRole('button', { name: /Confirmar/i })).toBeDefined();
   });
 
-  it('renders EmberLedger open with all 4 hero portraits, action badge, and missions', () => {
+  it('renders EmberLedger with objective potion checkboxes, 2-column 8-relic forge, relic drawer, and expandable missions', () => {
     render(<EmberLedger isOpen={true} onClose={() => {}} />);
     expect(screen.getByText('The Ember Measure')).toBeDefined();
     expect(screen.getByText(/Ações 3\/3/)).toBeDefined();
@@ -49,15 +50,46 @@ describe('UI Components with Illustrated GUI Skin', () => {
     expect(screen.getByAltText('Retrato de Mago')).toBeDefined();
     expect(screen.getByAltText('Retrato de Clérigo')).toBeDefined();
     expect(screen.getByAltText('Retrato de Ladino')).toBeDefined();
+    expect(screen.getByLabelText(/Trilha de Poções/i)).toBeDefined();
+    expect(screen.getAllByRole('checkbox')).toHaveLength(12);
     expect(screen.getByLabelText('Acervo de Relíquias Forjadas')).toBeDefined();
     expect(screen.getByAltText('Katana Masamune')).toBeDefined();
+    expect(screen.getByAltText('Gancho Kaginawa')).toBeDefined();
     expect(screen.getByAltText('Selo Onmyō')).toBeDefined();
     expect(screen.getByText(/Missões da Expedição/i)).toBeDefined();
 
-    // Clicking a relic slot opens inline detail description for keyboard/touch users
-    const katanaBtn = screen.getByRole('button', { name: /Katana Masamune/i });
-    fireEvent.click(katanaBtn);
-    expect(screen.getByText(/Soma \+1 ao Poder Bélico da comitiva/i)).toBeDefined();
+    // Clicking relic details toggle reveals inline description below grid
+    const katanaDetailsBtn = screen.getByRole('button', { name: /Detalhes de Katana Masamune/i });
+    fireEvent.click(katanaDetailsBtn);
+    expect(screen.getByText(/Soma \+2 ao Poder Bélico da comitiva/i)).toBeDefined();
+
+    // Mission cards start collapsed and expand/collapse on click
+    expect(screen.queryByText(/Derrote 3 ou mais monstros/i)).toBeNull();
+    const slayerMissionBtn = screen.getByRole('button', { name: /Missão Caçador de Lacaios/i });
+    fireEvent.click(slayerMissionBtn);
+    expect(screen.getByText(/Derrote 3 ou mais monstros/i)).toBeDefined();
+    fireEvent.click(slayerMissionBtn);
+    expect(screen.queryByText(/Derrote 3 ou mais monstros/i)).toBeNull();
+  });
+
+  it('renders MilestoneRewardModal and applies hero level reward', () => {
+    useGameStore.setState({
+      pendingRewards: [
+        {
+          id: 'rw-test',
+          source: 'potion-4',
+          title: 'Marco de Poções (4/12): Upgrade de Herói',
+          kind: 'choose-hero-level',
+        },
+      ],
+    });
+    render(<MilestoneRewardModal />);
+    expect(screen.getByRole('dialog')).toBeDefined();
+    expect(screen.getByText(/Marco de Poções \(4\/12\)/i)).toBeDefined();
+
+    fireEvent.click(screen.getByRole('button', { name: /Guerreiro/i }));
+    expect(useGameStore.getState().pendingRewards).toHaveLength(0);
+    expect(useGameStore.getState().party.heroes.warrior.level).toBe(2);
   });
 
   it('renders BossDuelModal with fight, flee, and back actions including Escape cancel', () => {

@@ -90,7 +90,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
   return (
     <header
       className={`w-full flex flex-wrap items-center justify-between gap-2 sm:gap-4 px-3 sm:px-6 ${
-        isLedgerOpen ? 'lg:pl-[23rem]' : ''
+        isLedgerOpen ? 'lg:pl-[24.5rem]' : ''
       } py-2 sm:py-3 backdrop-blur-md z-20 pointer-events-auto transition-[padding] duration-200 ${
         isSengoku
           ? 'gui-header-bar'

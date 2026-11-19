@@ -39,7 +39,11 @@ export function resolveMinionEncounter(
   minion: Minion
 ): MinionCombatOutcome {
   const relevantLevel = getRelevantHeroLevel(party, minion);
-  const woundsTaken = relevantLevel < minion.reqLevel ? minion.damage : 0;
+  let woundsTaken = relevantLevel < minion.reqLevel ? minion.damage : 0;
+  if (woundsTaken > 0) {
+    const yoroiReduction = getRelicCount(party, 'armadura-yoroi');
+    woundsTaken = Math.max(0, woundsTaken - yoroiReduction);
+  }
 
   return {
     woundsTaken,
@@ -54,8 +58,8 @@ export function getCombatPowerBreakdown(party: HeroParty): CombatPowerBreakdown 
     party.heroes.mage.level +
     party.heroes.cleric.level +
     party.heroes.rogue.level;
-  const katanaBonus = getRelicCount(party, 'katana-masamune');
-  const sealBonus = getRelicCount(party, 'selo-onmyo');
+  const katanaBonus = getRelicCount(party, 'katana-masamune') * 2;
+  const sealBonus = getRelicCount(party, 'selo-onmyo') * 2;
   const partyPower = heroLevels + katanaBonus;
   const bossPower = partyPower + sealBonus;
 
