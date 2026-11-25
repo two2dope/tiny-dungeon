@@ -21,13 +21,13 @@ const DieFaceArtwork: React.FC<{ symbol: DieSymbol; color: DieColor }> = ({
 
   if (!failed) {
     return (
-      <div className="relative w-11 h-11 sm:w-[3.15rem] sm:h-[3.15rem] flex items-center justify-center">
+      <div className="relative w-10 h-10 sm:w-[2.95rem] sm:h-[2.95rem] flex items-center justify-center">
         <img
           src={getDieSpriteUrl(color, symbol)}
           alt=""
           aria-hidden="true"
           onError={() => setFailed(true)}
-          className="w-11 h-11 sm:w-[3.15rem] sm:h-[3.15rem] object-contain drop-shadow-[0_3px_5px_rgba(0,0,0,0.85)]"
+          className="w-10 h-10 sm:w-[2.95rem] sm:h-[2.95rem] object-contain drop-shadow-[0_3px_5px_rgba(0,0,0,0.85)]"
         />
       </div>
     );
@@ -103,7 +103,7 @@ export const DiceTray: React.FC = () => {
       <div
         className={`w-full max-w-[26.5rem] grid grid-cols-6 rounded-lg ${
           isSengoku
-            ? 'gui-dice-tray-slots px-[5.2%] pt-[3.6%] pb-[7.8%] gap-[2.2%]'
+            ? 'gui-dice-tray-slots aspect-[680/172] pl-[6.7%] pr-[4.8%] pt-[4.0%] pb-[2.2%] gap-0 items-center justify-items-center'
             : 'p-1.5 gap-1.5 sm:gap-2'
         }`}
       >
@@ -125,8 +125,11 @@ export const DiceTray: React.FC = () => {
               type="button"
               disabled={isConsumed}
               aria-pressed={isSelected}
+              onMouseEnter={() => {
+                if (!isConsumed) soundEngine.play('hover');
+              }}
               onClick={() => {
-                soundEngine.play('click');
+                soundEngine.play('dice');
                 selectDie(isSelected ? null : die.id);
                 if (!isDrafted) {
                   stageDraft(die.id);
@@ -138,10 +141,10 @@ export const DiceTray: React.FC = () => {
                 isConsumed
                   ? 'opacity-50 grayscale-[35%] cursor-not-allowed'
                   : isSelected
-                    ? 'ring-2 ring-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.75)] scale-105'
+                    ? 'ring-2 ring-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.75)] -translate-y-0.5 scale-[1.06]'
                     : isDrafted
-                      ? 'ring-1 ring-amber-400/75'
-                      : 'opacity-95 hover:opacity-100'
+                      ? 'ring-1 ring-amber-400/75 hover:-translate-y-0.5 hover:scale-[1.04]'
+                      : 'opacity-95 hover:opacity-100 hover:-translate-y-0.5 hover:scale-[1.04]'
               }`}
             >
               {isConsumed && (
@@ -156,8 +159,12 @@ export const DiceTray: React.FC = () => {
         })}
       </div>
 
-      {/* Aligned 6-column caption strip below wooden compartments */}
-      <div className="w-full max-w-[26.5rem] grid grid-cols-6 px-[5.2%] gap-[2.2%] text-[10px] font-mono text-amber-200/85 text-center capitalize">
+      {/* Aligned 6-column caption strip matching exact tray compartment centers */}
+      <div
+        className={`w-full max-w-[26.5rem] grid grid-cols-6 ${
+          isSengoku ? 'pl-[6.7%] pr-[4.8%] gap-0' : 'px-1.5 gap-1.5 sm:gap-2'
+        } text-[10px] font-mono text-amber-200/85 text-center capitalize`}
+      >
         {dicePool.dice.map((die) => (
           <span
             key={`lbl-${die.id}`}

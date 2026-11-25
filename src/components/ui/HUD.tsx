@@ -120,7 +120,7 @@ export const HUD: React.FC<HUDProps> = ({ onToggleLedger, isLedgerOpen }) => {
               aria-label="Selecionar Mapa"
               value={mapId}
               onChange={(e) => {
-                soundEngine.play('click');
+                soundEngine.play('map');
                 selectMap(Number(e.target.value));
               }}
               className="bg-[#211711] text-[11px] font-mono text-amber-100 border border-amber-800/70 rounded px-1.5 py-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-amber-400"

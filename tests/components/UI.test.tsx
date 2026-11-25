@@ -10,12 +10,17 @@ import { useGameStore } from '../../src/store/gameStore';
 import {
   getCourtyardFadeTexture,
   getCourtyardGroundTexture,
+  getEmberBedTexture,
   getGlowPoolTexture,
   getLacquerWoodTexture,
   getMistRingTexture,
+  getOfudaStripTexture,
   getPanoramaTexture,
   getSlabTexture,
+  getStandeeHaloTexture,
+  getStylizedFlameTexture,
   getTabletopMatTexture,
+  getUiTokenTexture,
   getWallTexture,
   getWarBannerClothTexture,
 } from '../../src/components/canvas/proceduralTextures';
@@ -49,7 +54,7 @@ describe('UI Components with Illustrated GUI Skin', () => {
     expect(screen.getByRole('button', { name: /Confirmar/i })).toBeDefined();
   });
 
-  it('renders EmberLedger with objective potion checkboxes, 2-column 8-relic forge, relic drawer, and expandable missions', () => {
+  it('renders EmberLedger with 2x2 heroes, potion checkboxes, 4-column relic showcase, gem milestones, and expandable missions', () => {
     render(<EmberLedger isOpen={true} onClose={() => {}} />);
     expect(screen.getByText('The Ember Measure')).toBeDefined();
     expect(screen.getByText(/Ações 3\/3/)).toBeDefined();
@@ -66,12 +71,14 @@ describe('UI Components with Illustrated GUI Skin', () => {
     expect(screen.getByAltText('Katana Masamune')).toBeDefined();
     expect(screen.getByAltText('Gancho Kaginawa')).toBeDefined();
     expect(screen.getByAltText('Selo Onmyō')).toBeDefined();
+    expect(screen.getByText(/Gemas:/)).toBeDefined();
     expect(screen.getByText(/Missões da Expedição/i)).toBeDefined();
 
-    // Clicking relic details toggle reveals inline description below grid
+    // Clicking a square relic tile opens the unified inspector + forge button
     const katanaDetailsBtn = screen.getByRole('button', { name: /Detalhes de Katana Masamune/i });
     fireEvent.click(katanaDetailsBtn);
     expect(screen.getByText(/Soma \+2 ao Poder Bélico da comitiva/i)).toBeDefined();
+    expect(screen.getByRole('button', { name: /Forjar Katana Masamune/i })).toBeDefined();
 
     // Mission cards start collapsed and expand/collapse on click
     expect(screen.queryByText(/Derrote 3 ou mais monstros/i)).toBeNull();
@@ -149,17 +156,23 @@ describe('UI Components with Illustrated GUI Skin', () => {
     expect(screen.getByText(/Registro de Exploração/i)).toBeDefined();
   });
 
-  it('returns null safely from procedural courtyard textures in headless JSDOM', () => {
+  it('returns null safely from procedural courtyard and craft textures in headless JSDOM', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
-    expect(() => getSlabTexture('sengoku')).not.toThrow();
-    expect(() => getWallTexture('sengoku')).not.toThrow();
-    expect(() => getTabletopMatTexture('sengoku')).not.toThrow();
-    expect(() => getPanoramaTexture('sengoku')).not.toThrow();
-    expect(getCourtyardGroundTexture('sengoku')).toBeNull();
-    expect(getCourtyardFadeTexture('sengoku')).toBeNull();
+    expect(() => getSlabTexture('sengoku', 3)).not.toThrow();
+    expect(() => getSlabTexture('sengoku', 4)).not.toThrow();
+    expect(() => getWallTexture('sengoku', 5)).not.toThrow();
+    expect(() => getTabletopMatTexture('sengoku', 6)).not.toThrow();
+    expect(() => getPanoramaTexture('sengoku', 7)).not.toThrow();
+    expect(getCourtyardGroundTexture('sengoku', 3)).toBeNull();
+    expect(getCourtyardFadeTexture('sengoku', 4)).toBeNull();
     expect(getLacquerWoodTexture('vesperfall')).toBeNull();
-    expect(getMistRingTexture('sengoku')).toBeNull();
+    expect(getMistRingTexture('sengoku', 2)).toBeNull();
     expect(getGlowPoolTexture('vesperfall')).toBeNull();
-    expect(getWarBannerClothTexture('sengoku')).toBeNull();
+    expect(getWarBannerClothTexture('sengoku', 7)).toBeNull();
+    expect(getStandeeHaloTexture('#fbbf24', 'party', 'sengoku')).toBeNull();
+    expect(getStylizedFlameTexture('#ea580c', '#f59e0b', '#fef08a')).toBeNull();
+    expect(getEmberBedTexture('#ea580c', '#fef08a')).toBeNull();
+    expect(getUiTokenTexture('/assets/ui/token-sealed-lock.webp', 'lock')).toBeNull();
+    expect(getOfudaStripTexture()).toBeNull();
   });
 });

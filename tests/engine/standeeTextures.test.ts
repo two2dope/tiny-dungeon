@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
+  alignSpriteToBottom,
   getStandeeTexture,
   removeDarkStudioBackdrop,
   STANDEE_ASSET_URLS,
@@ -167,5 +168,29 @@ describe('standeeTextures', () => {
     const normalTex = getStandeeTexture('manticore', 'sengoku', 'normal');
     expect(dormantTex).not.toBeNull();
     expect(dormantTex).not.toBe(normalTex);
+  });
+
+  it('anchors floating opaque pixels cleanly to the bottom edge via alignSpriteToBottom', () => {
+    const width = 5;
+    const height = 8;
+    const data = new Uint8ClampedArray(width * height * 4);
+
+    // Place a 1x2 opaque sprite block at x=1, y=1..2 (leaving 5 rows transparent at bottom)
+    for (const y of [1, 2]) {
+      const off = (y * width + 1) * 4;
+      data[off] = 220;
+      data[off + 1] = 180;
+      data[off + 2] = 90;
+      data[off + 3] = 255;
+    }
+
+    alignSpriteToBottom({ data, width, height }, 1);
+
+    // Highest row at y=1..2 should have moved down so lowest opaque row sits at height - 1 - 1 = 6
+    expect(data[(2 * width + 1) * 4 + 3]).toBe(0);
+    // Centered horizontally at x=2 (width=5 center), bottom rows y=5..6 must be opaque
+    expect(data[(5 * width + 2) * 4 + 3]).toBe(255);
+    expect(data[(6 * width + 2) * 4 + 3]).toBe(255);
+    expect(data[(7 * width + 2) * 4 + 3]).toBe(0);
   });
 });

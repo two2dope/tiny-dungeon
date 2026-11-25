@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { DungeonCanvas } from './components/canvas/DungeonCanvas';
+import { getMapBiome } from './components/canvas/mapBiomes';
 import { HUD } from './components/ui/HUD';
 import { EmberLedger } from './components/ui/EmberLedger';
 import { DiceTray } from './components/ui/DiceTray';
@@ -21,12 +22,16 @@ export default function App() {
   const [shake, setShake] = useState(false);
 
   const theme = useGameStore((state) => state.theme);
+  const mapId = useGameStore((state) => state.mapId);
+  const isGameOver = useGameStore((state) => state.isGameOver);
   const lastEventFeedback = useGameStore((state) => state.lastEventFeedback);
   const pendingBossEncounter = useGameStore((state) => state.pendingBossEncounter);
   const pendingRewards = useGameStore((state) => state.pendingRewards);
   const undo = useGameStore((state) => state.undo);
   const redo = useGameStore((state) => state.redo);
   const confirmRound = useGameStore((state) => state.confirmRound);
+  const prevRewardsCountRef = useRef(pendingRewards.length);
+  const prevGameOverRef = useRef(isGameOver);
 
   // Responsive initial ledger state (closed on small mobile viewports)
   useEffect(() => {
@@ -95,6 +100,20 @@ export default function App() {
     }
   }, [lastEventFeedback]);
 
+  useEffect(() => {
+    if (pendingRewards.length > prevRewardsCountRef.current) {
+      soundEngine.play('milestone');
+    }
+    prevRewardsCountRef.current = pendingRewards.length;
+  }, [pendingRewards.length]);
+
+  useEffect(() => {
+    if (isGameOver && !prevGameOverRef.current) {
+      soundEngine.play('victory');
+    }
+    prevGameOverRef.current = isGameOver;
+  }, [isGameOver]);
+
   // Keyboard shortcuts
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -121,12 +140,15 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [undo, redo, confirmRound, pendingBossEncounter, pendingRewards.length]);
 
+  const biomeClearColor = getMapBiome(theme, mapId).clearColor;
+
   return (
     <main
       data-theme={theme}
+      style={{ backgroundColor: biomeClearColor }}
       className={`w-full min-h-screen min-h-[100dvh] h-[100dvh] overflow-hidden relative select-none flex flex-col justify-between pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] ${
-        theme === 'sengoku' ? 'bg-[#141822]' : 'bg-[#182030]'
-      } ${shake ? 'animate-shake' : ''}`}
+        shake ? 'animate-shake' : ''
+      }`}
     >
       <div className="absolute inset-0 z-0">
         <DungeonCanvas isLedgerOpen={isLedgerOpen} />

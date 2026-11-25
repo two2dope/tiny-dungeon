@@ -125,6 +125,60 @@ export function removeDarkStudioBackdrop(
   }
 }
 
+/**
+ * Shift opaque sprite pixels downward and horizontally center them so every standee
+ * rests solidly inside its pedestal slot with zero floating gap.
+ */
+export function alignSpriteToBottom(
+  imageData: PixelSurfaceLike,
+  bottomMargin = 4
+): void {
+  const { data, width, height } = imageData;
+  if (width <= 0 || height <= 0) return;
+
+  let minX = width;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const a = data[(y * width + x) * 4 + 3];
+      if (a > 28) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxY < 0 || maxX < minX) return;
+
+  const targetMaxY = Math.max(0, height - 1 - bottomMargin);
+  const shiftY = maxY < targetMaxY ? targetMaxY - maxY : 0;
+  const idealShiftX = Math.round((width - 1) / 2 - (minX + maxX) / 2);
+  const shiftX = Math.max(-minX, Math.min(width - 1 - maxX, idealShiftX));
+
+  if (shiftX === 0 && shiftY === 0) return;
+
+  const copy = new Uint8ClampedArray(data);
+  data.fill(0);
+
+  for (let y = 0; y < height; y++) {
+    const ny = y + shiftY;
+    if (ny < 0 || ny >= height) continue;
+    for (let x = minX; x <= maxX; x++) {
+      const nx = x + shiftX;
+      if (nx < 0 || nx >= width) continue;
+      const srcOff = (y * width + x) * 4;
+      const dstOff = (ny * width + nx) * 4;
+      data[dstOff] = copy[srcOff];
+      data[dstOff + 1] = copy[srcOff + 1];
+      data[dstOff + 2] = copy[srcOff + 2];
+      data[dstOff + 3] = copy[srcOff + 3];
+    }
+  }
+}
+
 export function applyStandeeVisualState(
   imageData: PixelSurfaceLike,
   visualState: StandeeVisualState
@@ -815,16 +869,16 @@ function drawPropMedallionFrame(
 ): void {
   ctx.clearRect(0, 0, 256, 320);
 
-  // Peg / stand base tab at bottom
+  // Grounded peg / stand base tab anchored flush to canvas bottom (y = 316)
   ctx.fillStyle = isSengoku ? '#451a03' : '#1e293b';
-  ctx.fillRect(68, 266, 120, 16);
+  ctx.fillRect(68, 294, 120, 22);
   ctx.strokeStyle = colors.rim;
   ctx.lineWidth = 3;
-  ctx.strokeRect(68, 266, 120, 16);
+  ctx.strokeRect(68, 294, 120, 22);
 
   // Outer beveled coin medallion (parchment / silver)
   ctx.beginPath();
-  ctx.arc(128, 176, 94, 0, Math.PI * 2);
+  ctx.arc(128, 204, 94, 0, Math.PI * 2);
   ctx.fillStyle = isSengoku ? '#f5e9d0' : '#cbd5e1';
   ctx.fill();
   ctx.lineWidth = 7;
@@ -834,14 +888,14 @@ function drawPropMedallionFrame(
   // Inner clipped disc
   ctx.save();
   ctx.beginPath();
-  ctx.arc(128, 176, 82, 0, Math.PI * 2);
+  ctx.arc(128, 204, 82, 0, Math.PI * 2);
   ctx.clip();
   renderInner();
   ctx.restore();
 
   // Colored metallic accent ring
   ctx.beginPath();
-  ctx.arc(128, 176, 82, 0, Math.PI * 2);
+  ctx.arc(128, 204, 82, 0, Math.PI * 2);
   ctx.lineWidth = 5;
   ctx.strokeStyle = colors.rim;
   ctx.stroke();
@@ -878,13 +932,13 @@ function hydrateStandeeFromFlowAsset(
 
           drawPropMedallionFrame(ctx, isSengoku, colors, () => {
             ctx.fillStyle = '#141210';
-            ctx.fillRect(42, 90, 172, 172);
+            ctx.fillRect(42, 118, 172, 172);
 
             const baseScale = Math.min(158 / natW, 158 / natH);
             const drawW = Math.max(1, Math.round(natW * baseScale));
             const drawH = Math.max(1, Math.round(natH * baseScale));
             const dx = Math.round(128 - drawW / 2);
-            const dy = Math.round(176 - drawH / 2);
+            const dy = Math.round(204 - drawH / 2);
 
             ctx.drawImage(img, dx, dy, drawW, drawH);
           });
@@ -903,6 +957,7 @@ function hydrateStandeeFromFlowAsset(
 
           const imageData = ctx.getImageData(0, 0, w, h);
           removeDarkStudioBackdrop(imageData, 128);
+          alignSpriteToBottom(imageData, 4);
           applyStandeeVisualState(imageData, visualState);
           ctx.putImageData(imageData, 0, 0);
         }
@@ -923,7 +978,7 @@ export function getStandeeTexture(
   theme: ThemeId = 'sengoku',
   visualState: StandeeVisualState = 'normal'
 ): THREE.CanvasTexture | null {
-  const key = `v4:${theme}:${kind}:${visualState}`;
+  const key = `v5:${theme}:${kind}:${visualState}`;
   const cached = standeeCache.get(key);
   if (cached) return cached;
 
@@ -936,14 +991,14 @@ export function getStandeeTexture(
 
   if (isProp) {
     drawPropMedallionFrame(ctx, isSengoku, colors, () => {
-      const grad = ctx.createLinearGradient(0, 92, 0, 260);
+      const grad = ctx.createLinearGradient(0, 120, 0, 288);
       grad.addColorStop(0, colors.bgTop);
       grad.addColorStop(1, colors.bgBottom);
       ctx.fillStyle = grad;
-      ctx.fillRect(42, 92, 172, 172);
+      ctx.fillRect(42, 120, 172, 172);
 
       ctx.save();
-      ctx.translate(128, 176);
+      ctx.translate(128, 204);
       ctx.scale(0.82, 0.82);
       ctx.translate(-128, -172);
       drawArtwork(ctx, kind, colors);
@@ -952,7 +1007,7 @@ export function getStandeeTexture(
   } else {
     ctx.clearRect(0, 0, 256, 320);
 
-    drawRoundedArchPath(ctx, 18, 18, 220, 280);
+    drawRoundedArchPath(ctx, 18, 26, 220, 280);
     ctx.fillStyle = isSengoku ? '#f5e9d0' : '#cbd5e1';
     ctx.fill();
     ctx.lineWidth = 8;
@@ -960,36 +1015,36 @@ export function getStandeeTexture(
     ctx.stroke();
 
     ctx.save();
-    drawRoundedArchPath(ctx, 28, 28, 200, 260);
+    drawRoundedArchPath(ctx, 28, 36, 200, 260);
     ctx.clip();
 
-    const grad = ctx.createLinearGradient(0, 28, 0, 288);
+    const grad = ctx.createLinearGradient(0, 36, 0, 296);
     grad.addColorStop(0, colors.bgTop);
     grad.addColorStop(1, colors.bgBottom);
     ctx.fillStyle = grad;
-    ctx.fillRect(28, 28, 200, 260);
+    ctx.fillRect(28, 36, 200, 260);
 
     ctx.strokeStyle = colors.rim;
     ctx.globalAlpha = 0.28;
     ctx.lineWidth = 6;
     ctx.beginPath();
-    ctx.arc(128, 138, 72, 0, Math.PI * 2);
+    ctx.arc(128, 146, 72, 0, Math.PI * 2);
     ctx.stroke();
     ctx.globalAlpha = 1;
 
     drawArtwork(ctx, kind, colors);
     ctx.restore();
 
-    drawRoundedArchPath(ctx, 28, 28, 200, 260);
+    drawRoundedArchPath(ctx, 28, 36, 200, 260);
     ctx.lineWidth = 4;
     ctx.strokeStyle = colors.rim;
     ctx.stroke();
 
     ctx.fillStyle = isSengoku ? '#451a03' : '#1e293b';
-    ctx.fillRect(42, 284, 172, 18);
+    ctx.fillRect(42, 296, 172, 20);
     ctx.strokeStyle = colors.rim;
     ctx.lineWidth = 3;
-    ctx.strokeRect(42, 284, 172, 18);
+    ctx.strokeRect(42, 296, 172, 20);
   }
 
   if (

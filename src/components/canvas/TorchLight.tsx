@@ -8,6 +8,7 @@ interface TorchLightProps {
   position: [number, number, number];
   intensity?: number;
   color?: string;
+  glowColor?: string;
   theme?: ThemeId;
   isPaused?: boolean;
 }
@@ -16,6 +17,7 @@ export const TorchLight: React.FC<TorchLightProps> = ({
   position,
   intensity = 4.2,
   color = '#ff8833',
+  glowColor = '#ffb454',
   theme = 'sengoku',
   isPaused = false,
 }) => {
@@ -51,7 +53,7 @@ export const TorchLight: React.FC<TorchLightProps> = ({
           </mesh>
           <mesh position={[0, 0.12, 0]}>
             <sphereGeometry args={[0.075, 10, 10]} />
-            <meshBasicMaterial color="#ffb454" />
+            <meshBasicMaterial color={glowColor} />
           </mesh>
         </group>
       ) : (
@@ -65,8 +67,8 @@ export const TorchLight: React.FC<TorchLightProps> = ({
             <mesh position={[0, 0, 0]}>
               <cylinderGeometry args={[0.1, 0.1, 0.24, 10]} />
               <meshStandardMaterial
-                color="#ffb454"
-                emissive="#ff7b1c"
+                color={glowColor}
+                emissive={color}
                 emissiveIntensity={1.2}
                 roughness={0.4}
               />

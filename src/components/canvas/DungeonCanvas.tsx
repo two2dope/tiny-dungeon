@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { EventFeedback, useGameStore } from '../../store/gameStore';
@@ -17,7 +17,8 @@ import { Walls3D } from './Walls3D';
 import { PartyPawn3D } from './PartyPawn3D';
 import { TorchLight } from './TorchLight';
 import { Environment360 } from './Environment360';
-import { DungeonCoord, HeroClass, RoomState, ThemeId } from '../../engine/types';
+import { getMapBiome } from './mapBiomes';
+import { DungeonCoord, HeroClass, RoomState } from '../../engine/types';
 import {
   getMovementBonusSteps,
   getRelicCount,
@@ -25,11 +26,23 @@ import {
 } from '../../engine/relics';
 import { soundEngine } from '../../audio/soundEngine';
 
-const AmbientMotes: React.FC<{ theme: ThemeId; isPaused: boolean }> = ({ theme, isPaused }) => {
+const SceneClearColor: React.FC<{ color: string }> = ({ color }) => {
+  const { gl } = useThree();
+  useEffect(() => {
+    gl.setClearColor(color);
+  }, [gl, color]);
+  return null;
+};
+
+const AmbientMotes: React.FC<{
+  color: string;
+  secondaryColor: string;
+  isPaused: boolean;
+}> = ({ color, secondaryColor, isPaused }) => {
   const groupRef = useRef<THREE.Group>(null);
   const motes = useMemo(
     () =>
-      Array.from({ length: 16 }).map((_, i) => ({
+      Array.from({ length: 18 }).map((_, i) => ({
         x: ((i * 7) % 10) - 1,
         y: 0.6 + ((i * 3) % 5) * 0.45,
         z: ((i * 5) % 10) - 1,
@@ -48,14 +61,16 @@ const AmbientMotes: React.FC<{ theme: ThemeId; isPaused: boolean }> = ({ theme, 
     });
   });
 
-  const color = theme === 'sengoku' ? '#ea580c' : '#ff9233';
-
   return (
     <group ref={groupRef}>
       {motes.map((m, idx) => (
         <mesh key={idx} position={[m.x, m.y, m.z]}>
           <boxGeometry args={[0.06, 0.06, 0.06]} />
-          <meshBasicMaterial color={color} transparent opacity={0.65} />
+          <meshBasicMaterial
+            color={idx % 3 === 0 ? secondaryColor : color}
+            transparent
+            opacity={0.68}
+          />
         </mesh>
       ))}
     </group>
@@ -217,8 +232,10 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
   const bossOutcomes = useGameStore((state) => state.bossOutcomes);
   const consumedDieIds = useGameStore((state) => state.consumedDieIds);
   const theme = useGameStore((state) => state.theme);
+  const mapId = useGameStore((state) => state.mapId);
   const lastEventFeedback = useGameStore((state) => state.lastEventFeedback);
 
+  const biome = getMapBiome(theme, mapId);
   const canAct = consumedDieIds.length < 3;
   const steps = 2 + getMovementBonusSteps(party);
   const canCrossBarriers = hasBarrierCrossingAbility(party);
@@ -246,29 +263,35 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
 
   const handleSelectTile = useCallback(
     (coord: DungeonCoord) => {
-      soundEngine.play('step');
+      const path = getShortestPath(dungeon, dungeon.currentCoord, coord, steps, {
+        canCrossBarriers,
+      });
+      const usesPortal = path.slice(0, -1).some((from, idx) => {
+        const to = path[idx + 1];
+        return Math.abs(to.x - from.x) + Math.abs(to.y - from.y) > 1;
+      });
+      soundEngine.play(usesPortal ? 'portal' : 'step');
       onTileSelect(coord);
     },
-    [onTileSelect]
+    [dungeon, steps, canCrossBarriers, onTileSelect]
   );
 
-  const torchMain = theme === 'sengoku' ? '#ffb347' : '#ff944d';
-  const torchAlt = theme === 'sengoku' ? '#fb923c' : '#ffaa66';
+  const handleLockedTileClick = useCallback(() => {
+    soundEngine.play('locked');
+  }, []);
+
+  const torchMain = biome.torchMain;
+  const torchAlt = biome.torchAlt;
+  const torchCenter = biome.torchCenter;
 
   return (
     <group position={[-centerOffsetX, 0, -centerOffsetZ]}>
       <ambientLight intensity={1.15} color="#ffffff" />
-      <hemisphereLight
-        args={[
-          theme === 'sengoku' ? '#dbeafe' : '#e2e8f0',
-          theme === 'sengoku' ? '#6e4e37' : '#475569',
-          theme === 'sengoku' ? 1.35 : 1.5,
-        ]}
-      />
+      <hemisphereLight args={[biome.hemiSky, biome.hemiGround, 1.38]} />
       <directionalLight
         position={[10, 20, 12]}
-        intensity={theme === 'sengoku' ? 2.45 : 2.4}
-        color={theme === 'sengoku' ? '#ffedd5' : '#f8fafc'}
+        intensity={biome.dirIntensity}
+        color={biome.dirColor}
         castShadow
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
@@ -278,21 +301,21 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
         shadow-camera-bottom={-22}
       />
 
-      <TorchLight position={[-0.3, 1.15, -0.3]} intensity={4.2} color={torchMain} theme={theme} isPaused={isPaused} />
-      <TorchLight position={[(cols - 1) * tileSize + 0.3, 1.15, -0.3]} intensity={4.2} color={torchAlt} theme={theme} isPaused={isPaused} />
-      <TorchLight position={[-0.3, 1.15, (rows - 1) * tileSize + 0.3]} intensity={4.2} color={torchAlt} theme={theme} isPaused={isPaused} />
-      <TorchLight position={[(cols - 1) * tileSize + 0.3, 1.15, (rows - 1) * tileSize + 0.3]} intensity={4.2} color="#ffbf5e" theme={theme} isPaused={isPaused} />
-      <TorchLight position={[centerOffsetX, 2.1, centerOffsetZ]} intensity={4.2} color="#ff8533" theme={theme} isPaused={isPaused} />
+      <TorchLight position={[-0.3, 1.15, -0.3]} intensity={4.2} color={torchMain} glowColor={biome.lanternGlow} theme={theme} isPaused={isPaused} />
+      <TorchLight position={[(cols - 1) * tileSize + 0.3, 1.15, -0.3]} intensity={4.2} color={torchAlt} glowColor={biome.lanternGlow} theme={theme} isPaused={isPaused} />
+      <TorchLight position={[-0.3, 1.15, (rows - 1) * tileSize + 0.3]} intensity={4.2} color={torchAlt} glowColor={biome.lanternGlow} theme={theme} isPaused={isPaused} />
+      <TorchLight position={[(cols - 1) * tileSize + 0.3, 1.15, (rows - 1) * tileSize + 0.3]} intensity={4.2} color={torchMain} glowColor={biome.lanternGlow} theme={theme} isPaused={isPaused} />
+      <TorchLight position={[centerOffsetX, 2.1, centerOffsetZ]} intensity={4.2} color={torchCenter} glowColor={biome.lanternGlow} theme={theme} isPaused={isPaused} />
 
-      <AmbientMotes theme={theme} isPaused={isPaused} />
-      <Environment360 theme={theme} tileSize={tileSize} cols={cols} rows={rows} isPaused={isPaused} />
+      <AmbientMotes color={biome.moteColor} secondaryColor={biome.moteSecondaryColor} isPaused={isPaused} />
+      <Environment360 theme={theme} mapId={mapId} tileSize={tileSize} cols={cols} rows={rows} isPaused={isPaused} />
 
       {/* Grounded Tactical Tabletop Base Slab */}
       <group position={[centerOffsetX, -0.12, centerOffsetZ]}>
         <mesh receiveShadow>
           <boxGeometry args={[cols * tileSize + 1.4, 0.12, rows * tileSize + 1.4]} />
           <meshStandardMaterial
-            color={theme === 'sengoku' ? '#1e1610' : '#0f172a'}
+            color={biome.tabletopBase}
             roughness={0.78}
             metalness={0.15}
           />
@@ -300,7 +323,7 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
         <mesh position={[0, -0.05, 0]} receiveShadow>
           <boxGeometry args={[cols * tileSize + 1.65, 0.06, rows * tileSize + 1.65]} />
           <meshStandardMaterial
-            color={theme === 'sengoku' ? '#92400e' : '#475569'}
+            color={biome.tabletopRim}
             roughness={0.48}
             metalness={0.45}
           />
@@ -327,9 +350,11 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
             bossOutcomes={bossOutcomes}
             canCrossBarriers={canCrossBarriers}
             theme={theme}
+            mapId={mapId}
             isPaused={isPaused}
             onHover={onHoverRoom}
             onSelect={handleSelectTile}
+            onLockedClick={handleLockedTileClick}
           />
         );
       })}
@@ -341,9 +366,11 @@ const DungeonScene: React.FC<DungeonSceneProps> = ({
         cols={cols}
         rows={rows}
         theme={theme}
+        mapId={mapId}
+        isPaused={isPaused}
       />
       <TacticalPath3D path={tacticalPath} tileSize={tileSize} />
-      <PartyPawn3D coord={dungeon.currentCoord} theme={theme} isPaused={isPaused} />
+      <PartyPawn3D coord={dungeon.currentCoord} theme={theme} mapId={mapId} isPaused={isPaused} />
       <ActionBurst3D
         coord={dungeon.currentCoord}
         feedback={lastEventFeedback}
@@ -361,6 +388,7 @@ interface DungeonCanvasProps {
 export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = false }) => {
   const stageMove = useGameStore((state) => state.stageMove);
   const theme = useGameStore((state) => state.theme);
+  const mapId = useGameStore((state) => state.mapId);
   const dungeon = useGameStore((state) => state.dungeon);
   const party = useGameStore((state) => state.party);
   const currentRound = useGameStore((state) => state.currentRound);
@@ -421,7 +449,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
     );
   }
 
-  const clearColor = theme === 'sengoku' ? '#141822' : '#182030';
+  const clearColor = getMapBiome(theme, mapId).clearColor;
 
   const getRoomPreviewText = (room: RoomState) => {
     const label = formatCoordLabel(room.coord);
@@ -483,9 +511,8 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
 
   return (
     <div
-      className={`w-full h-full relative cursor-grab active:cursor-grabbing ${
-        theme === 'sengoku' ? 'bg-[#141822]' : 'bg-[#182030]'
-      }`}
+      style={{ backgroundColor: clearColor }}
+      className="w-full h-full relative cursor-grab active:cursor-grabbing"
     >
       <Canvas
         key={canvasKey}
@@ -500,6 +527,7 @@ export const DungeonCanvas: React.FC<DungeonCanvasProps> = ({ isLedgerOpen = fal
           setCanvasEl(gl.domElement);
         }}
       >
+        <SceneClearColor color={clearColor} />
         <color attach="background" args={[clearColor]} />
         <DungeonScene
           onTileSelect={stageMove}

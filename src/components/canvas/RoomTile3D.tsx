@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Billboard, Html } from '@react-three/drei';
 import * as THREE from 'three';
@@ -7,7 +7,9 @@ import { getRelevantHeroLevel } from '../../engine/combat';
 import { getPrimaryRoomKind, getRoomContents } from '../../engine/dungeon';
 import { getRelicCount } from '../../engine/relics';
 import { HeroCrestSvg } from '../ui/TacticalIcons';
-import { getSlabTexture } from './proceduralTextures';
+import { getSlabTexture, getStandeeHaloTexture } from './proceduralTextures';
+import { getMapBiome } from './mapBiomes';
+import { soundEngine } from '../../audio/soundEngine';
 import {
   getStandeeTexture,
   resolveVillainStandeeKind,
@@ -54,25 +56,53 @@ function resolveBossBoardState(
   return 'dormant';
 }
 
-const StandeePedestal: React.FC<{ color: string; emissive: string }> = ({
-  color,
-  emissive,
-}) => (
-  <group position={[0, 0.11, 0]}>
-    <mesh receiveShadow>
-      <cylinderGeometry args={[0.52, 0.6, 0.09, 20]} />
-      <meshStandardMaterial color={color} emissive={emissive} emissiveIntensity={0.42} />
-    </mesh>
-    <mesh position={[0, 0.025, 0]} receiveShadow>
-      <cylinderGeometry args={[0.42, 0.46, 0.07, 20]} />
-      <meshStandardMaterial color="#1c1917" metalness={0.45} roughness={0.4} />
-    </mesh>
-    <mesh position={[0, 0.06, 0]}>
-      <boxGeometry args={[0.44, 0.05, 0.1]} />
-      <meshStandardMaterial color="#44403c" metalness={0.5} roughness={0.35} />
-    </mesh>
-  </group>
-);
+const StandeePedestal: React.FC<{
+  color: string;
+  emissive: string;
+  variant: 'minion' | 'prop';
+  theme: ThemeId;
+}> = ({ color, emissive, variant, theme }) => {
+  const haloTexture = useMemo(
+    () => getStandeeHaloTexture(color, variant, theme),
+    [color, variant, theme]
+  );
+
+  return (
+    <group>
+      {/* Textured Ground Halo + Contact AO Shadow */}
+      <mesh position={[0, 0.084, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={2}>
+        <planeGeometry args={[1.56, 1.56]} />
+        {haloTexture ? (
+          <meshBasicMaterial map={haloTexture} transparent opacity={0.9} depthWrite={false} />
+        ) : (
+          <meshBasicMaterial color={color} transparent opacity={0.35} depthWrite={false} />
+        )}
+      </mesh>
+
+      {/* Low Grounded Carved Stone/Iron Socket Plinth */}
+      <group position={[0, 0.105, 0]}>
+        <mesh receiveShadow>
+          <cylinderGeometry args={[0.46, 0.54, 0.055, 20]} />
+          <meshStandardMaterial color="#221e1b" roughness={0.62} metalness={0.3} />
+        </mesh>
+        <mesh position={[0, 0.025, 0]} receiveShadow>
+          <cylinderGeometry args={[0.37, 0.41, 0.04, 20]} />
+          <meshStandardMaterial
+            color={color}
+            emissive={emissive}
+            emissiveIntensity={0.34}
+            metalness={0.5}
+            roughness={0.38}
+          />
+        </mesh>
+        <mesh position={[0, 0.042, 0]}>
+          <boxGeometry args={[0.44, 0.036, 0.1]} />
+          <meshStandardMaterial color="#181512" metalness={0.65} roughness={0.35} />
+        </mesh>
+      </group>
+    </group>
+  );
+};
 
 interface RoomTile3DProps {
   room: RoomState;
@@ -84,8 +114,10 @@ interface RoomTile3DProps {
   currentRound?: number;
   bossOutcomes?: Record<string, BossOutcome>;
   theme?: ThemeId;
+  mapId?: number;
   isPaused?: boolean;
   onSelect: (coord: DungeonCoord) => void;
+  onLockedClick?: (room: RoomState) => void;
   onHover?: (room: RoomState | null) => void;
 }
 
@@ -99,15 +131,20 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
   currentRound = 1,
   bossOutcomes = {},
   theme = 'sengoku',
+  mapId = 1,
   isPaused = false,
   onSelect,
+  onLockedClick,
   onHover,
 }) => {
   const tileSize = 2.6;
   const posX = room.coord.x * tileSize;
   const posZ = room.coord.y * tileSize;
+  const slabMeshRef = useRef<THREE.Mesh>(null);
   const pulseRef = useRef<THREE.Mesh>(null);
   const bossRingRef = useRef<THREE.Mesh>(null);
+  const standeeGroupRef = useRef<THREE.Group>(null);
+  const hoveredRef = useRef<boolean>(false);
 
   const primaryKind = getPrimaryRoomKind(room);
   const isBoss = primaryKind === 'boss' && Boolean(room.villain);
@@ -115,23 +152,59 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
     ? resolveBossBoardState(room, currentRound, bossOutcomes)
     : null;
 
-  useFrame(({ clock }) => {
+  useEffect(() => {
+    return () => {
+      if (hoveredRef.current && typeof document !== 'undefined') {
+        document.body.style.cursor = 'auto';
+      }
+    };
+  }, []);
+
+  useFrame(({ clock }, delta) => {
     if (isPaused) return;
     const t = clock.getElapsedTime();
+
+    if (slabMeshRef.current) {
+      const targetY = isValidMove && hoveredRef.current ? 0.056 : 0.02;
+      slabMeshRef.current.position.y = THREE.MathUtils.lerp(
+        slabMeshRef.current.position.y,
+        targetY,
+        Math.min(1, delta * 14)
+      );
+    }
+
     if (pulseRef.current && isValidMove) {
       const mat = pulseRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.42 + Math.sin(t * 4) * 0.18;
+      const hoverBoost = hoveredRef.current ? 0.25 : 0;
+      mat.opacity = Math.min(0.95, 0.44 + Math.sin(t * 4.2) * 0.18 + hoverBoost);
+      const scaleTarget = hoveredRef.current ? 1.04 : 1;
+      pulseRef.current.scale.setScalar(
+        THREE.MathUtils.lerp(pulseRef.current.scale.x, scaleTarget, Math.min(1, delta * 12))
+      );
     }
-    if (bossRingRef.current && bossState === 'active') {
-      const mat = bossRingRef.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = 0.68 + Math.sin(t * 5) * 0.3;
-      const scale = 1 + Math.sin(t * 5) * 0.08;
-      bossRingRef.current.scale.set(scale, scale, 1);
+
+    if (bossRingRef.current) {
+      bossRingRef.current.rotation.z =
+        bossState === 'active' ? -t * 0.55 : bossState === 'dormant' ? 0 : -t * 0.18;
+      if (bossState === 'active') {
+        const mat = bossRingRef.current.material as THREE.MeshBasicMaterial;
+        mat.opacity = 0.72 + Math.sin(t * 4.5) * 0.24;
+        const scale = 1 + Math.sin(t * 4.5) * 0.06;
+        bossRingRef.current.scale.set(scale, scale, 1);
+      }
+    }
+
+    if (standeeGroupRef.current && !room.cleared) {
+      const shouldPulse =
+        (isBoss && bossState === 'active') || primaryKind === 'gem' || primaryKind === 'item';
+      const s = shouldPulse ? 1 + Math.sin(t * 2.6 + posX + posZ) * 0.02 : 1;
+      standeeGroupRef.current.scale.set(s, s, s);
     }
   });
 
   const isSengoku = theme === 'sengoku';
-  const slabTexture = useMemo(() => getSlabTexture(theme), [theme]);
+  const biome = getMapBiome(theme, mapId);
+  const slabTexture = useMemo(() => getSlabTexture(theme, mapId), [theme, mapId]);
   const standeeKind = resolveRoomStandeeKind(room);
   const visualState: StandeeVisualState =
     bossState === 'dormant' || bossState === 'defeated' || bossState === 'victorious'
@@ -143,15 +216,15 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
     [standeeKind, theme, visualState]
   );
 
-  let floorColor = isSengoku ? '#786754' : '#3f4c63';
-  if (isCurrent) floorColor = isSengoku ? '#d6b88e' : '#64748b';
-  else if (isValidMove) floorColor = isSengoku ? '#b89c72' : '#475569';
+  let floorColor = biome.floorBase;
+  if (isCurrent) floorColor = biome.floorCurrent;
+  else if (isValidMove) floorColor = biome.floorValid;
   else if (room.locked && !canCrossBarriers && !room.cleared) {
-    floorColor = isSengoku ? '#522f2b' : '#312344';
-  } else if (room.cleared) floorColor = isSengoku ? '#8a7965' : '#334155';
+    floorColor = biome.floorLocked;
+  } else if (room.cleared) floorColor = biome.floorCleared;
 
-  const borderColor = isSengoku ? '#4a3a2c' : '#1e293b';
-  const highlightColor = isSengoku ? '#fbbf24' : '#38bdf8';
+  const borderColor = biome.borderColor;
+  const highlightColor = biome.highlightColor;
 
   const renderBadge = (): React.ReactNode | null => {
     const moveRing = isValidMove ? 'ring-1 ring-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.65)]' : '';
@@ -356,7 +429,12 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         ? '#10b981'
         : bossState === 'victorious'
           ? '#dc2626'
-          : '#57534e';
+          : '#78716c';
+
+  const bossHaloTexture = useMemo(
+    () => (isBoss ? getStandeeHaloTexture(bossRingColor, 'boss', theme) : null),
+    [isBoss, bossRingColor, theme]
+  );
 
   const standeePlaneArgs: [number, number] = isBoss
     ? bossState === 'active'
@@ -370,20 +448,38 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
       ? [0.92, 1.15]
       : [1.06, 1.32];
 
-  const standeeY = isBoss
-    ? bossState === 'active'
-      ? 0.92
-      : bossState === 'defeated'
-        ? 0.72
-        : bossState === 'dormant'
-          ? 0.8
-          : 0.88
-    : primaryKind === 'gem' || primaryKind === 'item' || primaryKind === 'trap' || primaryKind === 'potion'
-      ? 0.64
-      : 0.78;
+  // Ground every bottom-anchored standee/medallion cleanly inside its pedestal/altar cradle
+  const standeeY = isBoss ? 0.14 + standeePlaneArgs[1] / 2 : 0.12 + standeePlaneArgs[1] / 2;
 
   const standeeOpacity =
     bossState === 'dormant' ? 0.85 : bossState === 'defeated' ? 0.9 : 1;
+
+  const handlePointerEnter = () => {
+    hoveredRef.current = true;
+    if (typeof document !== 'undefined') {
+      document.body.style.cursor = isValidMove ? 'pointer' : 'default';
+    }
+    if (isValidMove) {
+      soundEngine.play('hover');
+    }
+    onHover?.(room);
+  };
+
+  const handlePointerLeave = () => {
+    hoveredRef.current = false;
+    if (typeof document !== 'undefined') {
+      document.body.style.cursor = 'auto';
+    }
+    onHover?.(null);
+  };
+
+  const handleTileClick = () => {
+    if (isValidMove) {
+      onSelect(room.coord);
+    } else if (room.locked && !canCrossBarriers) {
+      onLockedClick?.(room);
+    }
+  };
 
   return (
     <group position={[posX, 0, posZ]}>
@@ -393,18 +489,19 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         <meshStandardMaterial color={borderColor} roughness={0.7} />
       </mesh>
 
-      {/* Main floor slab */}
+      {/* Main floor slab with subtle hover lift */}
       <mesh
+        ref={slabMeshRef}
         position={[0, 0.02, 0]}
         receiveShadow
         onPointerOver={(e) => {
           e.stopPropagation();
-          onHover?.(room);
+          handlePointerEnter();
         }}
-        onPointerOut={() => onHover?.(null)}
+        onPointerOut={handlePointerLeave}
         onClick={(e) => {
           e.stopPropagation();
-          if (isValidMove) onSelect(room.coord);
+          handleTileClick();
         }}
       >
         <boxGeometry args={[tileSize * 0.92, 0.12, tileSize * 0.92]} />
@@ -413,8 +510,8 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
           map={slabTexture ?? undefined}
           bumpMap={slabTexture ?? undefined}
           bumpScale={0.065}
-          roughness={0.65}
-          metalness={0.12}
+          roughness={biome.motif === 'water' ? 0.42 : 0.65}
+          metalness={biome.motif === 'water' ? 0.22 : 0.12}
         />
       </mesh>
 
@@ -426,12 +523,12 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
           rotation={[-Math.PI / 2, 0, 0]}
           onPointerOver={(e) => {
             e.stopPropagation();
-            onHover?.(room);
+            handlePointerEnter();
           }}
-          onPointerOut={() => onHover?.(null)}
+          onPointerOut={handlePointerLeave}
           onClick={(e) => {
             e.stopPropagation();
-            onSelect(room.coord);
+            handleTileClick();
           }}
         >
           <ringGeometry args={[tileSize * 0.3, tileSize * 0.45, 4]} />
@@ -446,8 +543,8 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
 
       {/* Cleared seal marker */}
       {room.cleared && room.type !== 'start' && !isBoss && (
-        <mesh position={[0, 0.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <circleGeometry args={[0.26, 16]} />
+        <mesh position={[0, 0.095, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.24, 16]} />
           <meshStandardMaterial
             color="#10b981"
             emissive="#059669"
@@ -457,61 +554,82 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
       )}
 
       {!room.cleared && primaryKind === 'gem' && (
-        <StandeePedestal color="#10b981" emissive="#059669" />
+        <StandeePedestal color="#10b981" emissive="#059669" variant="prop" theme={theme} />
       )}
       {!room.cleared && primaryKind === 'minion' && (
-        <StandeePedestal color="#ef4444" emissive="#b91c1c" />
+        <StandeePedestal color="#ef4444" emissive="#b91c1c" variant="minion" theme={theme} />
       )}
       {!room.cleared && primaryKind === 'trap' && (
-        <StandeePedestal color="#f97316" emissive="#c2410c" />
+        <StandeePedestal color="#f97316" emissive="#c2410c" variant="prop" theme={theme} />
       )}
       {!room.cleared && primaryKind === 'item' && (
-        <StandeePedestal color="#f59e0b" emissive="#b45309" />
+        <StandeePedestal color="#f59e0b" emissive="#b45309" variant="prop" theme={theme} />
       )}
       {!room.cleared && primaryKind === 'potion' && (
-        <StandeePedestal color="#14b8a6" emissive="#0f766e" />
+        <StandeePedestal color="#14b8a6" emissive="#0f766e" variant="prop" theme={theme} />
       )}
 
-      {/* Boss Imperial Altar with 4 Visual States */}
+      {/* Boss Imperial Altar with Textured Runic Ground Halo */}
       {isBoss && (
-        <group position={[0, 0.11, 0]}>
-          <mesh receiveShadow>
-            <cylinderGeometry args={[0.76, 0.86, 0.08, 28]} />
-            <meshStandardMaterial
-              color={bossAltarBase}
-              emissive={bossAltarEmissive}
-              emissiveIntensity={bossState === 'dormant' ? 0 : 0.45}
-            />
+        <group>
+          <mesh
+            ref={bossRingRef}
+            position={[0, 0.086, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={2}
+          >
+            <planeGeometry args={[2.06, 2.06]} />
+            {bossHaloTexture ? (
+              <meshBasicMaterial
+                map={bossHaloTexture}
+                transparent
+                opacity={bossState === 'dormant' ? 0.58 : 0.94}
+                depthWrite={false}
+              />
+            ) : (
+              <meshBasicMaterial color={bossRingColor} transparent opacity={0.5} depthWrite={false} />
+            )}
           </mesh>
-          <mesh position={[0, 0.03, 0]} receiveShadow>
-            <cylinderGeometry args={[0.62, 0.68, 0.08, 28]} />
-            <meshStandardMaterial color="#181311" metalness={0.5} roughness={0.35} />
-          </mesh>
-          <mesh ref={bossRingRef} position={[0, 0.075, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <ringGeometry args={[0.52, 0.61, 28]} />
-            <meshBasicMaterial
-              color={bossRingColor}
-              transparent
-              opacity={bossState === 'dormant' ? 0.6 : 0.95}
-            />
-          </mesh>
+
+          <group position={[0, 0.11, 0]}>
+            <mesh receiveShadow>
+              <cylinderGeometry args={[0.72, 0.82, 0.06, 28]} />
+              <meshStandardMaterial
+                color="#1c1917"
+                metalness={0.45}
+                roughness={0.45}
+              />
+            </mesh>
+            <mesh position={[0, 0.03, 0]} receiveShadow>
+              <cylinderGeometry args={[0.58, 0.64, 0.05, 28]} />
+              <meshStandardMaterial
+                color={bossAltarBase}
+                emissive={bossAltarEmissive}
+                emissiveIntensity={bossState === 'dormant' ? 0 : 0.42}
+                metalness={0.5}
+                roughness={0.35}
+              />
+            </mesh>
+          </group>
         </group>
       )}
 
       {/* 2.5D Die-Cut Illustrated Standee & Prop Medallion Billboard */}
       {standeeTexture && (
-        <Billboard position={[0, standeeY, 0]} follow={true}>
-          <mesh>
-            <planeGeometry args={standeePlaneArgs} />
-            <meshBasicMaterial
-              map={standeeTexture}
-              transparent
-              opacity={standeeOpacity}
-              alphaTest={0.08}
-              side={THREE.DoubleSide}
-            />
-          </mesh>
-        </Billboard>
+        <group ref={standeeGroupRef}>
+          <Billboard position={[0, standeeY, 0]} follow={true}>
+            <mesh>
+              <planeGeometry args={standeePlaneArgs} />
+              <meshBasicMaterial
+                map={standeeTexture}
+                transparent
+                opacity={standeeOpacity}
+                alphaTest={0.08}
+                side={THREE.DoubleSide}
+              />
+            </mesh>
+          </Billboard>
+        </group>
       )}
 
       {/* Decluttered objective micro-chip */}
@@ -519,7 +637,7 @@ const RoomTile3DBase: React.FC<RoomTile3DProps> = ({
         <Html
           position={
             isBoss
-              ? [0, bossState === 'defeated' ? 1.48 : 1.75, 0]
+              ? [0, bossState === 'defeated' ? 1.48 : 1.78, 0]
               : room.type === 'start'
                 ? [0, 0.14, 0.56]
                 : [0, 1.38, 0]

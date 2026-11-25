@@ -1,16 +1,26 @@
 import * as THREE from 'three';
 import { ThemeId } from '../../engine/types';
+import { getMapBiome, normalizeMapId } from './mapBiomes';
 
-const slabCache = new Map<ThemeId, THREE.CanvasTexture>();
-const wallCache = new Map<ThemeId, THREE.CanvasTexture>();
-const panoramaCache = new Map<ThemeId, THREE.CanvasTexture>();
-const tabletopCache = new Map<ThemeId, THREE.CanvasTexture>();
-const courtyardGroundCache = new Map<ThemeId, THREE.CanvasTexture>();
-const courtyardFadeCache = new Map<ThemeId, THREE.CanvasTexture>();
-const lacquerWoodCache = new Map<ThemeId, THREE.CanvasTexture>();
-const mistRingCache = new Map<ThemeId, THREE.CanvasTexture>();
-const glowPoolCache = new Map<ThemeId, THREE.CanvasTexture>();
-const warBannerClothCache = new Map<ThemeId, THREE.CanvasTexture>();
+const slabCache = new Map<string, THREE.CanvasTexture>();
+const wallCache = new Map<string, THREE.CanvasTexture>();
+const panoramaCache = new Map<string, THREE.CanvasTexture>();
+const tabletopCache = new Map<string, THREE.CanvasTexture>();
+const courtyardGroundCache = new Map<string, THREE.CanvasTexture>();
+const courtyardFadeCache = new Map<string, THREE.CanvasTexture>();
+const lacquerWoodCache = new Map<string, THREE.CanvasTexture>();
+const mistRingCache = new Map<string, THREE.CanvasTexture>();
+const glowPoolCache = new Map<string, THREE.CanvasTexture>();
+const warBannerClothCache = new Map<string, THREE.CanvasTexture>();
+const haloCache = new Map<string, THREE.CanvasTexture>();
+const flameCache = new Map<string, THREE.CanvasTexture>();
+const emberBedCache = new Map<string, THREE.CanvasTexture>();
+const uiTokenCache = new Map<string, THREE.CanvasTexture>();
+const ofudaCache = new Map<string, THREE.CanvasTexture>();
+
+function cacheKey(theme: ThemeId, mapId = 1): string {
+  return theme === 'sengoku' ? `sengoku:${normalizeMapId(mapId)}` : 'vesperfall';
+}
 
 function createCanvasSurface(
   width: number,
@@ -75,21 +85,21 @@ function drawInkCrack(
   ctx.stroke();
 }
 
-export function getSlabTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = slabCache.get(theme);
+export function getSlabTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = slabCache.get(key);
   if (existing) return existing;
 
   const size = 512;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
+  const biome = getMapBiome(theme, mapId);
   const isSengoku = theme === 'sengoku';
 
-  // Neutral-bright multiplier base so material tint shows rich carved stonework + tatami weave
-  ctx.fillStyle = isSengoku ? '#e2d2b9' : '#d5dfed';
+  ctx.fillStyle = biome.slabBase;
   ctx.fillRect(0, 0, size, size);
 
-  // 3x3 carved masonry tiles with varied stone tone, bevels, and subtle cross-grain
   const cell = size / 3;
   const toneOffsets = [-18, 12, -10, 14, -5, 18, -12, 10, -16];
   for (let row = 0; row < 3; row++) {
@@ -104,7 +114,7 @@ export function getSlabTexture(theme: ThemeId): THREE.CanvasTexture | null {
           : `rgba(18,14,12,${Math.abs(delta) / 62})`;
       ctx.fillRect(x + 4, y + 4, cell - 8, cell - 8);
 
-      // Aged tatami / fine brushed stone cross-grain lines inside each tile
+      // Aged tatami / fine brushed stone cross-grain lines
       ctx.strokeStyle = isSengoku ? 'rgba(66, 48, 30, 0.12)' : 'rgba(30, 41, 59, 0.14)';
       ctx.lineWidth = 1;
       const horizontalWeave = (row + col) % 2 === 0;
@@ -154,17 +164,61 @@ export function getSlabTexture(theme: ThemeId): THREE.CanvasTexture | null {
     ctx.fillRect(px, py, w, w);
   }
 
-  // Moss patina (Sengoku) or frosted mineral veins (Vesperfall) along mortar corners
-  for (let i = 0; i < 42; i++) {
+  // Biome-specific surface weathering patches
+  const patchCount = biome.motif === 'moss' ? 68 : 42;
+  for (let i = 0; i < patchCount; i++) {
     const fx = ((i * 137 + 19) % 440) + 36;
     const fy = ((i * 211 + 43) % 440) + 36;
-    const r = 4 + (i % 6);
-    ctx.fillStyle = isSengoku
-      ? `rgba(74, 102, 52, ${0.14 + (i % 3) * 0.05})`
-      : `rgba(125, 211, 252, ${0.09 + (i % 3) * 0.04})`;
+    const r = (biome.motif === 'moss' ? 6 : 4) + (i % 6);
+    ctx.fillStyle = `rgba(${biome.slabAccentRgb}, ${
+      biome.motif === 'water' || biome.motif === 'frost'
+        ? 0.14 + (i % 3) * 0.05
+        : 0.12 + (i % 3) * 0.05
+    })`;
     ctx.beginPath();
-    ctx.ellipse(fx, fy, r * 1.4, r, (i * 0.7) % Math.PI, 0, Math.PI * 2);
+    ctx.ellipse(fx, fy, r * 1.45, r, (i * 0.7) % Math.PI, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // Motif-specific floor artistry
+  if (biome.motif === 'water') {
+    for (const [rx, ry, rr] of [
+      [148, 162, 54],
+      [356, 338, 62],
+      [256, 256, 44],
+    ] as const) {
+      const puddle = ctx.createRadialGradient(rx, ry, 4, rx, ry, rr);
+      puddle.addColorStop(0, 'rgba(45, 212, 191, 0.28)');
+      puddle.addColorStop(0.65, 'rgba(56, 189, 248, 0.14)');
+      puddle.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = puddle;
+      ctx.beginPath();
+      ctx.ellipse(rx, ry, rr * 1.2, rr * 0.85, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (biome.motif === 'gold-inlay') {
+    ctx.strokeStyle = 'rgba(245, 194, 72, 0.45)';
+    ctx.lineWidth = 2.5;
+    ctx.strokeRect(18, 18, size - 36, size - 36);
+    ctx.strokeRect(128, 128, size - 256, size - 256);
+  } else if (biome.motif === 'frost') {
+    ctx.fillStyle = 'rgba(241, 245, 249, 0.38)';
+    for (let i = 0; i < 60; i++) {
+      const sx = (i * 181 + 23) % size;
+      const sy = (i * 257 + 41) % size;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 2 + (i % 3), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else if (biome.motif === 'sandstone') {
+    ctx.strokeStyle = 'rgba(168, 118, 62, 0.18)';
+    ctx.lineWidth = 2;
+    for (let y = 30; y < size; y += 38) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.bezierCurveTo(size * 0.33, y + 8, size * 0.66, y - 8, size, y + 3);
+      ctx.stroke();
+    }
   }
 
   // Deepened sumi-e ink mortar grooves
@@ -181,8 +235,16 @@ export function getSlabTexture(theme: ThemeId): THREE.CanvasTexture | null {
     ctx.stroke();
   }
 
+  // Magma glowing seams trace inside obsidian cracks
+  if (biome.motif === 'magma') {
+    const glowLine = 'rgba(249, 115, 22, 0.62)';
+    drawInkCrack(ctx, [[34, 48], [76, 86], [104, 78], [134, 114]], glowLine, 5);
+    drawInkCrack(ctx, [[352, 378], [418, 426], [460, 404]], glowLine, 5);
+    drawInkCrack(ctx, [[cell, 16], [cell, size - 16]], 'rgba(234, 88, 12, 0.36)', 2.5);
+  }
+
   // Carved tactical diamond emblem in slab center
-  ctx.strokeStyle = isSengoku ? 'rgba(110, 62, 24, 0.44)' : 'rgba(56, 189, 248, 0.28)';
+  ctx.strokeStyle = biome.slabEmblem;
   ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.moveTo(256, 178);
@@ -200,7 +262,7 @@ export function getSlabTexture(theme: ThemeId): THREE.CanvasTexture | null {
   drawInkCrack(ctx, [[352, 378], [418, 426], [460, 404]], crackInk, 2.6);
 
   // Corner metal studs
-  ctx.fillStyle = isSengoku ? 'rgba(146, 64, 14, 0.58)' : 'rgba(100, 116, 139, 0.58)';
+  ctx.fillStyle = biome.slabStud;
   for (const [bx, by] of [
     [22, 22],
     [size - 22, 22],
@@ -213,21 +275,23 @@ export function getSlabTexture(theme: ThemeId): THREE.CanvasTexture | null {
   }
 
   const tex = configureTexture(canvas, 'repeat');
-  slabCache.set(theme, tex);
+  slabCache.set(key, tex);
   return tex;
 }
 
-export function getWallTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = wallCache.get(theme);
+export function getWallTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = wallCache.get(key);
   if (existing) return existing;
 
   const size = 512;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
+  const biome = getMapBiome(theme, mapId);
   const isSengoku = theme === 'sengoku';
 
-  ctx.fillStyle = isSengoku ? '#d9c4aa' : '#aebccf';
+  ctx.fillStyle = biome.wallBase;
   ctx.fillRect(0, 0, size, size);
 
   const rows = 6;
@@ -242,21 +306,34 @@ export function getWallTexture(theme: ThemeId): THREE.CanvasTexture | null {
         ctx.fillRect(x + 3, y + 3, 122, rowH - 6);
       }
 
-      // Top highlight on masonry course
       ctx.fillStyle = 'rgba(255,255,255,0.22)';
       ctx.fillRect(x + 4, y + 3, 120, 4);
 
-      // Sumi-e mortar border
       ctx.strokeStyle = isSengoku ? 'rgba(26, 16, 10, 0.78)' : 'rgba(12, 18, 34, 0.8)';
       ctx.lineWidth = 5;
       ctx.strokeRect(x, y, 128, rowH);
     }
   }
 
+  if (biome.motif === 'magma') {
+    drawInkCrack(ctx, [[42, 140], [120, 210], [186, 190]], 'rgba(249, 115, 22, 0.5)', 3);
+    drawInkCrack(ctx, [[310, 280], [390, 360], [450, 330]], 'rgba(220, 38, 38, 0.48)', 3);
+  } else if (biome.motif === 'frost') {
+    ctx.fillStyle = 'rgba(241, 245, 249, 0.25)';
+    ctx.fillRect(0, 32, size, 12);
+  } else if (biome.motif === 'moss') {
+    for (let i = 0; i < 14; i++) {
+      ctx.fillStyle = 'rgba(74, 124, 58, 0.25)';
+      ctx.beginPath();
+      ctx.ellipse((i * 89 + 24) % size, 240 + (i % 5) * 48, 18, 8, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
   // Iron/timber beam band & rivets along upper wall crest
-  ctx.fillStyle = isSengoku ? 'rgba(56, 28, 14, 0.48)' : 'rgba(24, 34, 52, 0.5)';
+  ctx.fillStyle = biome.wallBand;
   ctx.fillRect(0, 0, size, 32);
-  ctx.fillStyle = isSengoku ? 'rgba(217, 119, 6, 0.55)' : 'rgba(148, 163, 184, 0.58)';
+  ctx.fillStyle = biome.wallRivet;
   for (let rx = 32; rx < size; rx += 64) {
     ctx.beginPath();
     ctx.arc(rx, 16, 4.5, 0, Math.PI * 2);
@@ -264,37 +341,31 @@ export function getWallTexture(theme: ThemeId): THREE.CanvasTexture | null {
   }
 
   const tex = configureTexture(canvas, 'repeat');
-  wallCache.set(theme, tex);
+  wallCache.set(key, tex);
   return tex;
 }
 
-export function getTabletopMatTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = tabletopCache.get(theme);
+export function getTabletopMatTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = tabletopCache.get(key);
   if (existing) return existing;
 
   const size = 1024;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
+  const biome = getMapBiome(theme, mapId);
   const isSengoku = theme === 'sengoku';
   const cx = size / 2;
   const cy = size / 2;
 
-  // Dressed temple stone courtyard plaza base
   const baseGrad = ctx.createRadialGradient(cx, cy, 80, cx, cy, 520);
-  if (isSengoku) {
-    baseGrad.addColorStop(0, '#3a3028');
-    baseGrad.addColorStop(0.65, '#2b2420');
-    baseGrad.addColorStop(1, '#1c1817');
-  } else {
-    baseGrad.addColorStop(0, '#273549');
-    baseGrad.addColorStop(0.65, '#1b2434');
-    baseGrad.addColorStop(1, '#111724');
-  }
+  baseGrad.addColorStop(0, biome.daisGrad[0]);
+  baseGrad.addColorStop(0.65, biome.daisGrad[1]);
+  baseGrad.addColorStop(1, biome.daisGrad[2]);
   ctx.fillStyle = baseGrad;
   ctx.fillRect(0, 0, size, size);
 
-  // Concentric dressed stone block rings with tonal variation + ink outlines
   const ringRadii = [160, 235, 315, 395, 475];
   for (let rIdx = 0; rIdx < ringRadii.length; rIdx++) {
     const innerR = rIdx === 0 ? 78 : ringRadii[rIdx - 1];
@@ -320,9 +391,8 @@ export function getTabletopMatTexture(theme: ThemeId): THREE.CanvasTexture | nul
         ctx.fill();
       }
 
-      // Moss / frosted patina inside selected joints
       if ((s + rIdx * 3) % 7 === 0) {
-        ctx.fillStyle = isSengoku ? 'rgba(72, 104, 52, 0.22)' : 'rgba(56, 189, 248, 0.14)';
+        ctx.fillStyle = `rgba(${biome.courtyardDetailRgb}, 0.2)`;
         ctx.fill();
       }
 
@@ -332,7 +402,6 @@ export function getTabletopMatTexture(theme: ThemeId): THREE.CanvasTexture | nul
     }
   }
 
-  // Stone grain speckles & scorched ember patina near corners
   for (let i = 0; i < 3200; i++) {
     const px = (i * 251 + 43) % size;
     const py = (i * 389 + 71) % size;
@@ -348,7 +417,7 @@ export function getTabletopMatTexture(theme: ThemeId): THREE.CanvasTexture | nul
     [size - 220, size - 220],
   ]) {
     const emberGlow = ctx.createRadialGradient(bx, by, 8, bx, by, 130);
-    emberGlow.addColorStop(0, isSengoku ? 'rgba(234, 88, 12, 0.16)' : 'rgba(56, 189, 248, 0.14)');
+    emberGlow.addColorStop(0, biome.glowPoolStops[1]);
     emberGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = emberGlow;
     ctx.beginPath();
@@ -356,20 +425,19 @@ export function getTabletopMatTexture(theme: ThemeId): THREE.CanvasTexture | nul
     ctx.fill();
   }
 
-  // Subdued antique-brass (Sengoku) / frosted-cyan (Vesperfall) engraved compass crest
   for (const [r, alpha, lw] of [
-    [462, 0.34, 5],
-    [392, 0.24, 3],
+    [462, 0.36, 5],
+    [392, 0.25, 3],
     [260, 0.22, 3],
   ] as const) {
-    ctx.strokeStyle = isSengoku ? `rgba(184, 134, 62, ${alpha})` : `rgba(96, 165, 250, ${alpha})`;
+    ctx.strokeStyle = `rgba(${biome.daisCrestRgb}, ${alpha})`;
     ctx.lineWidth = lw;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.stroke();
   }
 
-  ctx.strokeStyle = isSengoku ? 'rgba(184, 134, 62, 0.3)' : 'rgba(96, 165, 250, 0.28)';
+  ctx.strokeStyle = `rgba(${biome.daisCrestRgb}, 0.32)`;
   ctx.lineWidth = 4;
   for (let a = 0; a < 8; a++) {
     const ang = (a * Math.PI) / 4;
@@ -380,24 +448,25 @@ export function getTabletopMatTexture(theme: ThemeId): THREE.CanvasTexture | nul
   }
 
   const tex = configureTexture(canvas, 'clamp');
-  tabletopCache.set(theme, tex);
+  tabletopCache.set(key, tex);
   return tex;
 }
 
-export function getCourtyardGroundTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = courtyardGroundCache.get(theme);
+export function getCourtyardGroundTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = courtyardGroundCache.get(key);
   if (existing) return existing;
 
   const size = 1024;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
+  const biome = getMapBiome(theme, mapId);
   const isSengoku = theme === 'sengoku';
 
-  ctx.fillStyle = isSengoku ? '#262426' : '#182132';
+  ctx.fillStyle = biome.courtyardBase;
   ctx.fillRect(0, 0, size, size);
 
-  // Irregular weathered courtyard flagstones across 8 rows
   const rows = 8;
   const rowH = size / rows;
   const widths = [128, 192, 96, 160, 128, 192, 128];
@@ -416,7 +485,6 @@ export function getCourtyardGroundTexture(theme: ThemeId): THREE.CanvasTexture |
           : `rgba(8, 10, 14, ${Math.abs(tone) * 0.055})`;
       ctx.fillRect(x + 4, y + 4, bw - 8, rowH - 8);
 
-      // Stone slab top bevel highlight
       ctx.strokeStyle = isSengoku ? 'rgba(205, 196, 182, 0.16)' : 'rgba(148, 163, 184, 0.16)';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
@@ -425,12 +493,10 @@ export function getCourtyardGroundTexture(theme: ThemeId): THREE.CanvasTexture |
       ctx.lineTo(x + bw - 7, y + 6);
       ctx.stroke();
 
-      // Deep dark mortar joints + outline
       ctx.strokeStyle = isSengoku ? 'rgba(10, 12, 16, 0.85)' : 'rgba(6, 10, 20, 0.88)';
       ctx.lineWidth = 5.5;
       ctx.strokeRect(x, y, bw, rowH);
 
-      // Scattered stone fractures inside selected slabs
       if ((row + col) % 3 === 0) {
         drawInkCrack(
           ctx,
@@ -449,20 +515,16 @@ export function getCourtyardGroundTexture(theme: ThemeId): THREE.CanvasTexture |
     }
   }
 
-  // Moss patches (Sengoku) or icy arcane seams (Vesperfall)
   for (let i = 0; i < 65; i++) {
     const mx = (i * 197 + 31) % size;
     const my = (i * 313 + 67) % size;
     const r = 10 + (i % 16);
-    ctx.fillStyle = isSengoku
-      ? `rgba(62, 88, 48, ${0.14 + (i % 3) * 0.06})`
-      : `rgba(56, 189, 248, ${0.07 + (i % 3) * 0.04})`;
+    ctx.fillStyle = `rgba(${biome.courtyardDetailRgb}, ${0.12 + (i % 3) * 0.05})`;
     ctx.beginPath();
     ctx.ellipse(mx, my, r * 1.4, r * 0.9, (i * 0.9) % Math.PI, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Mineral grain speckles
   for (let i = 0; i < 3600; i++) {
     const px = (i * 239 + 17) % size;
     const py = (i * 409 + 61) % size;
@@ -471,24 +533,11 @@ export function getCourtyardGroundTexture(theme: ThemeId): THREE.CanvasTexture |
     ctx.fillRect(px, py, w, w);
   }
 
-  // Scattered autumn maple leaves (Sengoku) or faint magma fissures (Vesperfall)
-  if (isSengoku) {
-    const leafColors = ['rgba(180, 56, 36, 0.62)', 'rgba(204, 118, 38, 0.58)', 'rgba(138, 38, 28, 0.55)'];
-    for (let i = 0; i < 54; i++) {
-      const lx = (i * 283 + 57) % size;
-      const ly = (i * 179 + 93) % size;
-      const angle = (i * 1.1) % (Math.PI * 2);
-      ctx.save();
-      ctx.translate(lx, ly);
-      ctx.rotate(angle);
-      ctx.fillStyle = leafColors[i % leafColors.length];
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 7 + (i % 4), 3.2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
-    }
-  } else {
-    for (let i = 0; i < 16; i++) {
+  // Biome-specific ground scatter details
+  if (biome.motif === 'magma' || biome.motif === 'vesperfall') {
+    const fissureColor =
+      biome.motif === 'magma' ? 'rgba(249, 115, 22, 0.48)' : 'rgba(249, 115, 22, 0.28)';
+    for (let i = 0; i < (biome.motif === 'magma' ? 28 : 16); i++) {
       const sx = (i * 191 + 44) % size;
       const sy = (i * 277 + 88) % size;
       drawInkCrack(
@@ -498,68 +547,98 @@ export function getCourtyardGroundTexture(theme: ThemeId): THREE.CanvasTexture |
           [sx + 28, sy + 18],
           [sx + 52, sy + 6],
         ],
-        'rgba(249, 115, 22, 0.28)',
-        2.5
+        fissureColor,
+        biome.motif === 'magma' ? 3.2 : 2.5
       );
+    }
+  } else if (biome.motif === 'water') {
+    for (let i = 0; i < 18; i++) {
+      const rx = (i * 223 + 48) % size;
+      const ry = (i * 173 + 64) % size;
+      const rr = 34 + (i % 4) * 14;
+      const g = ctx.createRadialGradient(rx, ry, 2, rx, ry, rr);
+      g.addColorStop(0, biome.courtyardAccentColors[i % biome.courtyardAccentColors.length]);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.ellipse(rx, ry, rr * 1.4, rr * 0.9, (i * 0.4) % Math.PI, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  } else {
+    for (let i = 0; i < 58; i++) {
+      const lx = (i * 283 + 57) % size;
+      const ly = (i * 179 + 93) % size;
+      const angle = (i * 1.1) % (Math.PI * 2);
+      ctx.save();
+      ctx.translate(lx, ly);
+      ctx.rotate(angle);
+      ctx.fillStyle = biome.courtyardAccentColors[i % biome.courtyardAccentColors.length];
+      ctx.beginPath();
+      const rx = biome.motif === 'frost' ? 12 + (i % 8) : 7 + (i % 4);
+      const ry = biome.motif === 'frost' ? 6 + (i % 4) : 3.2;
+      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
   }
 
   const tex = configureTexture(canvas, 'repeat', 5, 5);
-  courtyardGroundCache.set(theme, tex);
+  courtyardGroundCache.set(key, tex);
   return tex;
 }
 
-export function getCourtyardFadeTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = courtyardFadeCache.get(theme);
+export function getCourtyardFadeTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = courtyardFadeCache.get(key);
   if (existing) return existing;
 
   const size = 512;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
-  const isSengoku = theme === 'sengoku';
+  const biome = getMapBiome(theme, mapId);
   const cx = size / 2;
   const cy = size / 2;
   const rOuter = size / 2;
 
   ctx.clearRect(0, 0, size, size);
-  const fadeRgb = isSengoku ? '20, 24, 34' : '15, 23, 42';
   const grad = ctx.createRadialGradient(cx, cy, rOuter * 0.42, cx, cy, rOuter);
-  grad.addColorStop(0, `rgba(${fadeRgb}, 0)`);
-  grad.addColorStop(0.36, `rgba(${fadeRgb}, 0.28)`);
-  grad.addColorStop(0.7, `rgba(${fadeRgb}, 0.86)`);
-  grad.addColorStop(0.84, `rgba(${fadeRgb}, 1)`);
-  grad.addColorStop(1, `rgba(${fadeRgb}, 1)`);
+  grad.addColorStop(0, `rgba(${biome.fadeRgb}, 0)`);
+  grad.addColorStop(0.36, `rgba(${biome.fadeRgb}, 0.28)`);
+  grad.addColorStop(0.7, `rgba(${biome.fadeRgb}, 0.86)`);
+  grad.addColorStop(0.84, `rgba(${biome.fadeRgb}, 1)`);
+  grad.addColorStop(1, `rgba(${biome.fadeRgb}, 1)`);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
 
   const tex = configureTexture(canvas, 'clamp');
-  courtyardFadeCache.set(theme, tex);
+  courtyardFadeCache.set(key, tex);
   return tex;
 }
 
-export function getLacquerWoodTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = lacquerWoodCache.get(theme);
+export function getLacquerWoodTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = lacquerWoodCache.get(key);
   if (existing) return existing;
 
   const size = 512;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
+  const biome = getMapBiome(theme, mapId);
   const isSengoku = theme === 'sengoku';
 
-  ctx.fillStyle = isSengoku ? '#a62d22' : '#3b4776';
+  ctx.fillStyle = biome.lacquerBase;
   ctx.fillRect(0, 0, size, size);
 
-  // Sumi-e vertical wood grain streaks & aged knots
   for (let i = 0; i < 160; i++) {
     const gx = (i * 19 + 7) % size;
     const dark = i % 3 !== 0;
     ctx.strokeStyle = dark
       ? isSengoku
-        ? `rgba(38, 10, 8, ${0.18 + (i % 4) * 0.06})`
+        ? `rgba(24, 10, 8, ${0.18 + (i % 4) * 0.06})`
         : `rgba(12, 16, 36, ${0.22 + (i % 4) * 0.06})`
-      : 'rgba(255, 215, 180, 0.1)';
+      : 'rgba(255, 225, 190, 0.1)';
     ctx.lineWidth = 1.5 + (i % 3);
     ctx.beginPath();
     ctx.moveTo(gx, 0);
@@ -574,15 +653,13 @@ export function getLacquerWoodTexture(theme: ThemeId): THREE.CanvasTexture | nul
     ctx.stroke();
   }
 
-  // Chipped lacquer patina patches
   for (let i = 0; i < 36; i++) {
     const px = (i * 149 + 23) % size;
     const py = (i * 263 + 41) % size;
-    ctx.fillStyle = isSengoku ? 'rgba(64, 38, 22, 0.34)' : 'rgba(22, 28, 52, 0.38)';
+    ctx.fillStyle = isSengoku ? 'rgba(42, 24, 16, 0.34)' : 'rgba(22, 28, 52, 0.38)';
     ctx.fillRect(px, py, 6 + (i % 10), 14 + (i % 18));
   }
 
-  // Subtle dark iron strap bands with forged rivets
   for (const bandY of [72, 248, 412]) {
     ctx.fillStyle = 'rgba(18, 18, 22, 0.56)';
     ctx.fillRect(0, bandY, size, 22);
@@ -590,7 +667,7 @@ export function getLacquerWoodTexture(theme: ThemeId): THREE.CanvasTexture | nul
     ctx.lineWidth = 2;
     ctx.strokeRect(0, bandY, size, 22);
 
-    ctx.fillStyle = isSengoku ? 'rgba(212, 164, 92, 0.65)' : 'rgba(148, 163, 184, 0.65)';
+    ctx.fillStyle = isSengoku ? 'rgba(212, 164, 92, 0.68)' : 'rgba(148, 163, 184, 0.65)';
     for (let rx = 28; rx < size; rx += 64) {
       ctx.beginPath();
       ctx.arc(rx, bandY + 11, 3.5, 0, Math.PI * 2);
@@ -599,26 +676,25 @@ export function getLacquerWoodTexture(theme: ThemeId): THREE.CanvasTexture | nul
   }
 
   const tex = configureTexture(canvas, 'repeat');
-  lacquerWoodCache.set(theme, tex);
+  lacquerWoodCache.set(key, tex);
   return tex;
 }
 
-export function getMistRingTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = mistRingCache.get(theme);
+export function getMistRingTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = mistRingCache.get(key);
   if (existing) return existing;
 
   const size = 512;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
-  const isSengoku = theme === 'sengoku';
+  const biome = getMapBiome(theme, mapId);
   const cx = size / 2;
   const cy = size / 2;
 
   ctx.clearRect(0, 0, size, size);
-  const mistRgb = isSengoku ? '110, 138, 178' : '96, 165, 250';
 
-  // Soft overlapping clouds around r = 32%..96%, completely clear over board center
   for (let i = 0; i < 42; i++) {
     const angle = (i / 42) * Math.PI * 2 + (i % 3) * 0.19;
     const dist = 104 + (i % 5) * 26;
@@ -628,16 +704,15 @@ export function getMistRingTexture(theme: ThemeId): THREE.CanvasTexture | null {
     const alpha = 0.14 + (i % 3) * 0.05;
 
     const grad = ctx.createRadialGradient(wx, wy, 4, wx, wy, wispR);
-    grad.addColorStop(0, `rgba(${mistRgb}, ${alpha})`);
-    grad.addColorStop(0.55, `rgba(${mistRgb}, ${alpha * 0.45})`);
-    grad.addColorStop(1, `rgba(${mistRgb}, 0)`);
+    grad.addColorStop(0, `rgba(${biome.mistRgb}, ${alpha})`);
+    grad.addColorStop(0.55, `rgba(${biome.mistRgb}, ${alpha * 0.45})`);
+    grad.addColorStop(1, `rgba(${biome.mistRgb}, 0)`);
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(wx, wy, wispR, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Mask out central board window (r < 30%) and smooth outer rim via destination-in / destination-out
   ctx.save();
   ctx.globalCompositeOperation = 'destination-out';
   const innerHole = ctx.createRadialGradient(cx, cy, size * 0.1, cx, cy, size * 0.19);
@@ -651,46 +726,41 @@ export function getMistRingTexture(theme: ThemeId): THREE.CanvasTexture | null {
   ctx.restore();
 
   const tex = configureTexture(canvas, 'clamp');
-  mistRingCache.set(theme, tex);
+  mistRingCache.set(key, tex);
   return tex;
 }
 
-export function getGlowPoolTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = glowPoolCache.get(theme);
+export function getGlowPoolTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = glowPoolCache.get(key);
   if (existing) return existing;
 
   const size = 256;
   const surface = createCanvasSurface(size, size);
   if (!surface) return null;
   const { canvas, ctx } = surface;
-  const isSengoku = theme === 'sengoku';
+  const biome = getMapBiome(theme, mapId);
   const cx = size / 2;
   const cy = size / 2;
   const r = size / 2;
 
   ctx.clearRect(0, 0, size, size);
   const grad = ctx.createRadialGradient(cx, cy, 4, cx, cy, r);
-  if (isSengoku) {
-    grad.addColorStop(0, 'rgba(255, 186, 82, 0.56)');
-    grad.addColorStop(0.35, 'rgba(255, 148, 42, 0.34)');
-    grad.addColorStop(0.7, 'rgba(217, 95, 20, 0.12)');
-    grad.addColorStop(1, 'rgba(217, 95, 20, 0)');
-  } else {
-    grad.addColorStop(0, 'rgba(125, 211, 252, 0.48)');
-    grad.addColorStop(0.4, 'rgba(56, 189, 248, 0.26)');
-    grad.addColorStop(0.75, 'rgba(37, 99, 235, 0.08)');
-    grad.addColorStop(1, 'rgba(37, 99, 235, 0)');
-  }
+  grad.addColorStop(0, biome.glowPoolStops[0]);
+  grad.addColorStop(0.35, biome.glowPoolStops[1]);
+  grad.addColorStop(0.7, biome.glowPoolStops[2]);
+  grad.addColorStop(1, biome.glowPoolStops[3]);
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
 
   const tex = configureTexture(canvas, 'clamp');
-  glowPoolCache.set(theme, tex);
+  glowPoolCache.set(key, tex);
   return tex;
 }
 
-export function getWarBannerClothTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = warBannerClothCache.get(theme);
+export function getWarBannerClothTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = warBannerClothCache.get(key);
   if (existing) return existing;
 
   const w = 256;
@@ -698,11 +768,11 @@ export function getWarBannerClothTexture(theme: ThemeId): THREE.CanvasTexture | 
   const surface = createCanvasSurface(w, h);
   if (!surface) return null;
   const { canvas, ctx } = surface;
+  const biome = getMapBiome(theme, mapId);
   const isSengoku = theme === 'sengoku';
 
   ctx.clearRect(0, 0, w, h);
 
-  // Tattered Sengoku banner silhouette with jagged battle-torn bottom hem
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(20, 14);
@@ -719,13 +789,11 @@ export function getWarBannerClothTexture(theme: ThemeId): THREE.CanvasTexture | 
   ctx.closePath();
   ctx.clip();
 
-  // Vertical parchment / crimson split
-  ctx.fillStyle = isSengoku ? '#d9cab0' : '#cbd5e1';
+  ctx.fillStyle = biome.bannerLeft;
   ctx.fillRect(0, 0, w / 2, h);
-  ctx.fillStyle = isSengoku ? '#8a231c' : '#26355e';
+  ctx.fillStyle = biome.bannerRight;
   ctx.fillRect(w / 2, 0, w / 2, h);
 
-  // Subtle cloth weave & ink aging folds
   for (let y = 24; y < h; y += 26) {
     ctx.strokeStyle = 'rgba(20, 14, 10, 0.14)';
     ctx.lineWidth = 2;
@@ -735,11 +803,10 @@ export function getWarBannerClothTexture(theme: ThemeId): THREE.CanvasTexture | 
     ctx.stroke();
   }
 
-  // Golden diamond clan mon emblem in center
   ctx.save();
   ctx.translate(w / 2, 186);
   ctx.rotate(Math.PI / 4);
-  ctx.fillStyle = isSengoku ? '#d9a441' : '#60a5fa';
+  ctx.fillStyle = biome.bannerEmblem;
   ctx.strokeStyle = '#1c120b';
   ctx.lineWidth = 6;
   ctx.fillRect(-38, -38, 76, 76);
@@ -757,7 +824,6 @@ export function getWarBannerClothTexture(theme: ThemeId): THREE.CanvasTexture | 
 
   ctx.restore();
 
-  // Bold outer sumi-e ink outline along banner perimeter
   ctx.strokeStyle = '#18100c';
   ctx.lineWidth = 7;
   ctx.lineJoin = 'round';
@@ -776,9 +842,8 @@ export function getWarBannerClothTexture(theme: ThemeId): THREE.CanvasTexture | 
   ctx.closePath();
   ctx.stroke();
 
-  // Hanging cloth mounting loops along top rod
   for (const lx of [42, 128, 214]) {
-    ctx.fillStyle = isSengoku ? '#e2d4bc' : '#e2e8f0';
+    ctx.fillStyle = biome.bannerLeft;
     ctx.fillRect(lx - 10, 4, 20, 22);
     ctx.strokeStyle = '#18100c';
     ctx.lineWidth = 4;
@@ -786,12 +851,13 @@ export function getWarBannerClothTexture(theme: ThemeId): THREE.CanvasTexture | 
   }
 
   const tex = configureTexture(canvas, 'clamp');
-  warBannerClothCache.set(theme, tex);
+  warBannerClothCache.set(key, tex);
   return tex;
 }
 
-export function getPanoramaTexture(theme: ThemeId): THREE.CanvasTexture | null {
-  const existing = panoramaCache.get(theme);
+export function getPanoramaTexture(theme: ThemeId, mapId = 1): THREE.CanvasTexture | null {
+  const key = cacheKey(theme, mapId);
+  const existing = panoramaCache.get(key);
   if (existing) return existing;
 
   const w = 1024;
@@ -799,59 +865,45 @@ export function getPanoramaTexture(theme: ThemeId): THREE.CanvasTexture | null {
   const surface = createCanvasSurface(w, h);
   if (!surface) return null;
   const { canvas, ctx } = surface;
+  const biome = getMapBiome(theme, mapId);
   const isSengoku = theme === 'sengoku';
 
-  // Moody twilight gradient calibrated for 45 deg isometric downward camera (lower hemisphere y = 240..480)
   const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
-  if (isSengoku) {
-    skyGrad.addColorStop(0, '#0d1220');
-    skyGrad.addColorStop(0.36, '#1b2438');
-    skyGrad.addColorStop(0.5, '#3d2824');
-    skyGrad.addColorStop(0.64, '#1b2438');
-    skyGrad.addColorStop(0.82, '#141822');
-    skyGrad.addColorStop(1, '#10141c');
-  } else {
-    skyGrad.addColorStop(0, '#070b14');
-    skyGrad.addColorStop(0.38, '#131d33');
-    skyGrad.addColorStop(0.52, '#223254');
-    skyGrad.addColorStop(0.66, '#151f33');
-    skyGrad.addColorStop(0.84, '#0f172a');
-    skyGrad.addColorStop(1, '#090d16');
-  }
+  skyGrad.addColorStop(0, biome.skyStops[0]);
+  skyGrad.addColorStop(0.36, biome.skyStops[1]);
+  skyGrad.addColorStop(0.5, biome.skyStops[2]);
+  skyGrad.addColorStop(0.64, biome.skyStops[3]);
+  skyGrad.addColorStop(0.82, biome.skyStops[4]);
+  skyGrad.addColorStop(1, biome.skyStops[5]);
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, w, h);
 
-  // Stars / dust across mid & upper sky
   for (let i = 0; i < 180; i++) {
     const sx = (i * 199 + 41) % w;
     const sy = 20 + ((i * 89) % 235);
     const radius = (i % 3) * 0.55 + 0.65;
-    ctx.fillStyle = isSengoku
-      ? `rgba(254, 215, 170, ${0.14 + (i % 4) * 0.1})`
-      : `rgba(186, 230, 253, ${0.18 + (i % 4) * 0.12})`;
+    ctx.fillStyle = `rgba(${biome.horizonEmberRgb}, ${0.14 + (i % 4) * 0.1})`;
     ctx.beginPath();
     ctx.arc(sx, sy, radius, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // Luminous celestial moon in twilight dome
-  const moonX = isSengoku ? 260 : 760;
-  const moonY = 165;
-  const moonGlow = ctx.createRadialGradient(moonX, moonY, 12, moonX, moonY, 108);
-  moonGlow.addColorStop(0, isSengoku ? 'rgba(253, 186, 116, 0.85)' : 'rgba(147, 197, 253, 0.72)');
-  moonGlow.addColorStop(0.45, isSengoku ? 'rgba(234, 88, 12, 0.24)' : 'rgba(99, 102, 241, 0.22)');
+  const moonX = isSengoku ? 220 + ((normalizeMapId(mapId) * 97) % 620) : 760;
+  const moonY = 162;
+  const moonGlow = ctx.createRadialGradient(moonX, moonY, 12, moonX, moonY, 112);
+  moonGlow.addColorStop(0, biome.moonGlowInner);
+  moonGlow.addColorStop(0.45, biome.moonGlowMid);
   moonGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = moonGlow;
   ctx.beginPath();
-  ctx.arc(moonX, moonY, 108, 0, Math.PI * 2);
+  ctx.arc(moonX, moonY, 112, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = isSengoku ? '#ffedd5' : '#e0f2fe';
+  ctx.fillStyle = biome.moonColor;
   ctx.beginPath();
   ctx.arc(moonX, moonY, 24, 0, Math.PI * 2);
   ctx.fill();
 
-  // Seamless periodic 360 jagged horizon ridge helper placed in camera-visible lower band (y = 220..440)
   const drawMountainLayer = (
     baseY: number,
     amp1: number,
@@ -876,13 +928,12 @@ export function getPanoramaTexture(theme: ThemeId): THREE.CanvasTexture | null {
     ctx.fill();
   };
 
-  if (isSengoku) {
-    drawMountainLayer(268, 36, 20, 3, 7, '#1d2233');
-    drawMountainLayer(312, 30, 16, 4, 9, '#171b29');
-    drawMountainLayer(362, 22, 12, 5, 11, '#121622');
+  drawMountainLayer(268, 36, 20, 3, 7, biome.mountainLayers[0]);
+  drawMountainLayer(312, 30, 16, 4, 9, biome.mountainLayers[1]);
+  drawMountainLayer(362, 22, 12, 5, 11, biome.mountainLayers[2]);
 
-    // Distant silhouette pagodas around the 360 horizon
-    ctx.fillStyle = '#0d1018';
+  if (isSengoku) {
+    ctx.fillStyle = biome.pagodaColor;
     for (const px of [140, 540, 880]) {
       ctx.fillRect(px - 10, 272, 20, 48);
       for (let tier = 0; tier < 3; tier++) {
@@ -896,23 +947,15 @@ export function getPanoramaTexture(theme: ThemeId): THREE.CanvasTexture | null {
         ctx.fill();
       }
     }
-  } else {
-    drawMountainLayer(264, 40, 24, 4, 8, '#18223a');
-    drawMountainLayer(314, 30, 18, 5, 10, '#111829');
-    drawMountainLayer(362, 22, 13, 6, 13, '#0b101d');
   }
 
-  // Drifting twilight mist wisps & soft dusk embers visible around lower 45 deg band (y = 220..440)
   for (let i = 0; i < 28; i++) {
     const mx = (i * 157 + 28) % w;
     const my = 248 + ((i * 47) % 176);
     const rx = 56 + (i % 4) * 26;
     const ry = 18 + (i % 3) * 8;
     const mistGrad = ctx.createRadialGradient(mx, my, 4, mx, my, rx);
-    mistGrad.addColorStop(
-      0,
-      isSengoku ? 'rgba(110, 138, 178, 0.14)' : 'rgba(96, 165, 250, 0.12)'
-    );
+    mistGrad.addColorStop(0, `rgba(${biome.mistRgb}, 0.14)`);
     mistGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.save();
     ctx.translate(mx, my);
@@ -924,16 +967,12 @@ export function getPanoramaTexture(theme: ThemeId): THREE.CanvasTexture | null {
     ctx.restore();
   }
 
-  // Soft glowing dusk embers / lantern haze spots in lower band
   for (let i = 0; i < 36; i++) {
     const ex = (i * 211 + 61) % w;
     const ey = 230 + ((i * 59) % 190);
     const glowR = 14 + (i % 3) * 10;
     const emberGrad = ctx.createRadialGradient(ex, ey, 1, ex, ey, glowR);
-    emberGrad.addColorStop(
-      0,
-      isSengoku ? 'rgba(251, 146, 60, 0.34)' : 'rgba(56, 189, 248, 0.28)'
-    );
+    emberGrad.addColorStop(0, `rgba(${biome.horizonEmberRgb}, 0.34)`);
     emberGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = emberGrad;
     ctx.beginPath();
@@ -941,18 +980,369 @@ export function getPanoramaTexture(theme: ThemeId): THREE.CanvasTexture | null {
     ctx.fill();
   }
 
-  // Soft horizon dusk mist band
   const mistGrad = ctx.createLinearGradient(0, 290, 0, 410);
   mistGrad.addColorStop(0, 'rgba(0,0,0,0)');
-  mistGrad.addColorStop(
-    0.5,
-    isSengoku ? 'rgba(130, 152, 186, 0.12)' : 'rgba(56, 189, 248, 0.12)'
-  );
+  mistGrad.addColorStop(0.5, `rgba(${biome.mistRgb}, 0.14)`);
   mistGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = mistGrad;
   ctx.fillRect(0, 290, w, 120);
 
   const tex = configureTexture(canvas, 'panorama');
-  panoramaCache.set(theme, tex);
+  panoramaCache.set(key, tex);
+  return tex;
+}
+
+export function getStandeeHaloTexture(
+  accentHex: string,
+  variant: 'party' | 'boss' | 'minion' | 'prop',
+  theme: ThemeId = 'sengoku'
+): THREE.CanvasTexture | null {
+  const key = `${theme}:${variant}:${accentHex}`;
+  const existing = haloCache.get(key);
+  if (existing) return existing;
+
+  const size = 256;
+  const surface = createCanvasSurface(size, size);
+  if (!surface) return null;
+  const { canvas, ctx } = surface;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Soft dark ground ambient occlusion + contact shadow directly under standee/pedestal
+  const contactGrad = ctx.createRadialGradient(cx, cy, 8, cx, cy, 86);
+  contactGrad.addColorStop(0, 'rgba(0, 0, 0, 0.72)');
+  contactGrad.addColorStop(0.45, 'rgba(0, 0, 0, 0.42)');
+  contactGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = contactGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 86, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Outer ambient aura glow tinted with entity accent
+  const auraGrad = ctx.createRadialGradient(cx, cy, 62, cx, cy, 122);
+  auraGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+  auraGrad.addColorStop(0.45, `${accentHex}55`);
+  auraGrad.addColorStop(0.72, `${accentHex}33`);
+  auraGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = auraGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 122, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Dark sumi-e ink brush halo backing stroke
+  ctx.strokeStyle = 'rgba(12, 10, 9, 0.85)';
+  ctx.lineWidth = variant === 'boss' ? 14 : 11;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.arc(cx, cy, variant === 'party' ? 88 : 82, 0.12, Math.PI * 2 - 0.18);
+  ctx.stroke();
+
+  // Primary colored painterly brush ring (broken sumi-e enso arc for organic craft)
+  ctx.strokeStyle = accentHex;
+  ctx.lineWidth = variant === 'boss' ? 7 : 5.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, variant === 'party' ? 88 : 82, 0.16, Math.PI * 2 - 0.22);
+  ctx.stroke();
+
+  // Secondary inner precision accent ring
+  ctx.strokeStyle = `${accentHex}bb`;
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, variant === 'boss' ? 98 : 94, 0.5, Math.PI * 1.85);
+  ctx.stroke();
+
+  if (variant === 'party') {
+    // Crisp 4 cardinal compass chevron ticks baked cleanly into the party halo
+    for (let i = 0; i < 4; i++) {
+      const ang = (i * Math.PI) / 2;
+      ctx.save();
+      ctx.translate(cx + Math.cos(ang) * 108, cy + Math.sin(ang) * 108);
+      ctx.rotate(ang);
+      ctx.fillStyle = '#fef08a';
+      ctx.strokeStyle = '#1c1917';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(14, 0);
+      ctx.lineTo(-6, -9);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(-6, 9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+  } else if (variant === 'boss') {
+    // 8 ritual seal notch marks for imperial boss altar
+    ctx.strokeStyle = accentHex;
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 8; i++) {
+      const ang = (i * Math.PI) / 4;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(ang) * 92, cy + Math.sin(ang) * 92);
+      ctx.lineTo(cx + Math.cos(ang) * 110, cy + Math.sin(ang) * 110);
+      ctx.stroke();
+    }
+  } else {
+    // Subtle 4 ornamental studs for minion/prop pedestals
+    ctx.fillStyle = theme === 'sengoku' ? '#fef3c7' : '#bae6fd';
+    for (let i = 0; i < 4; i++) {
+      const ang = (i * Math.PI) / 2 + Math.PI / 4;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(ang) * 94, cy + Math.sin(ang) * 94, 4.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const tex = configureTexture(canvas, 'clamp');
+  haloCache.set(key, tex);
+  return tex;
+}
+
+export function getStylizedFlameTexture(
+  outerHex: string,
+  midHex: string,
+  coreHex: string
+): THREE.CanvasTexture | null {
+  const key = `${outerHex}:${midHex}:${coreHex}`;
+  const existing = flameCache.get(key);
+  if (existing) return existing;
+
+  const w = 256;
+  const h = 256;
+  const surface = createCanvasSurface(w, h);
+  if (!surface) return null;
+  const { canvas, ctx } = surface;
+
+  ctx.clearRect(0, 0, w, h);
+
+  // Soft outer radial heat halo
+  const heatGrad = ctx.createRadialGradient(128, 178, 14, 128, 152, 118);
+  heatGrad.addColorStop(0, `${outerHex}cc`);
+  heatGrad.addColorStop(0.55, `${outerHex}44`);
+  heatGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = heatGrad;
+  ctx.beginPath();
+  ctx.arc(128, 156, 118, 0, Math.PI * 2);
+  ctx.fill();
+
+  const drawLick = (
+    cx: number,
+    baseY: number,
+    topY: number,
+    width: number,
+    lean: number,
+    fill: string | CanvasGradient
+  ) => {
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(cx, baseY);
+    ctx.bezierCurveTo(cx - width, baseY - 22, cx - width * 0.7 + lean, (baseY + topY) / 2, cx + lean, topY);
+    ctx.bezierCurveTo(cx + width * 0.65 + lean, (baseY + topY) / 2, cx + width, baseY - 22, cx, baseY);
+    ctx.closePath();
+    ctx.fill();
+  };
+
+  // Side flame tongues
+  drawLick(102, 232, 74, 42, -16, `${outerHex}cc`);
+  drawLick(154, 232, 84, 38, 14, `${outerHex}cc`);
+
+  // Main central outer flame
+  const outerGrad = ctx.createLinearGradient(0, 236, 0, 22);
+  outerGrad.addColorStop(0, outerHex);
+  outerGrad.addColorStop(0.65, midHex);
+  outerGrad.addColorStop(1, `${midHex}00`);
+  drawLick(128, 236, 22, 68, 4, outerGrad);
+
+  // Mid bright flame tongue
+  const midGrad = ctx.createLinearGradient(0, 234, 0, 56);
+  midGrad.addColorStop(0, midHex);
+  midGrad.addColorStop(0.75, coreHex);
+  midGrad.addColorStop(1, `${coreHex}00`);
+  drawLick(128, 234, 56, 46, -5, midGrad);
+
+  // Luminous incandescent core
+  drawLick(128, 230, 116, 26, 2, coreHex);
+
+  // Rising detached flame droplet sparks near crown
+  for (const [sx, sy, sr] of [
+    [108, 46, 5],
+    [146, 36, 4],
+    [126, 18, 3.5],
+  ] as const) {
+    ctx.fillStyle = coreHex;
+    ctx.beginPath();
+    ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const tex = configureTexture(canvas, 'clamp');
+  flameCache.set(key, tex);
+  return tex;
+}
+
+export function getEmberBedTexture(outerHex: string, coreHex: string): THREE.CanvasTexture | null {
+  const key = `${outerHex}:${coreHex}`;
+  const existing = emberBedCache.get(key);
+  if (existing) return existing;
+
+  const size = 128;
+  const surface = createCanvasSurface(size, size);
+  if (!surface) return null;
+  const { canvas, ctx } = surface;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  ctx.clearRect(0, 0, size, size);
+  const bedGrad = ctx.createRadialGradient(cx, cy, 4, cx, cy, 62);
+  bedGrad.addColorStop(0, coreHex);
+  bedGrad.addColorStop(0.45, outerHex);
+  bedGrad.addColorStop(0.85, '#291512');
+  bedGrad.addColorStop(1, '#140c0a');
+
+  ctx.fillStyle = bedGrad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Charred coal nuggets silhouette over hot ember glow
+  ctx.fillStyle = 'rgba(20, 12, 10, 0.78)';
+  for (let i = 0; i < 18; i++) {
+    const ang = i * 2.1;
+    const dist = 12 + (i % 4) * 11;
+    ctx.beginPath();
+    ctx.ellipse(
+      cx + Math.cos(ang) * dist,
+      cy + Math.sin(ang) * dist,
+      8 + (i % 4) * 2,
+      5 + (i % 3) * 2,
+      ang,
+      0,
+      Math.PI * 2
+    );
+    ctx.fill();
+  }
+
+  const tex = configureTexture(canvas, 'clamp');
+  emberBedCache.set(key, tex);
+  return tex;
+}
+
+export function getUiTokenTexture(
+  url: string,
+  fallbackKind: 'lock' | 'portal'
+): THREE.CanvasTexture | null {
+  const existing = uiTokenCache.get(url);
+  if (existing) return existing;
+
+  const size = 128;
+  const surface = createCanvasSurface(size, size);
+  if (!surface) return null;
+  const { canvas, ctx } = surface;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  ctx.clearRect(0, 0, size, size);
+  if (fallbackKind === 'lock') {
+    const grad = ctx.createRadialGradient(cx, cy, 8, cx, cy, 56);
+    grad.addColorStop(0, '#dc2626');
+    grad.addColorStop(1, '#450a0a');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 54, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = '#fbbf24';
+    ctx.stroke();
+
+    ctx.fillStyle = '#fef3c7';
+    ctx.fillRect(cx - 18, cy - 4, 36, 26);
+    ctx.strokeStyle = '#fef3c7';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(cx, cy - 8, 13, Math.PI, 0);
+    ctx.stroke();
+  } else {
+    const grad = ctx.createRadialGradient(cx, cy, 6, cx, cy, 58);
+    grad.addColorStop(0, '#ecfeff');
+    grad.addColorStop(0.35, '#2dd4bf');
+    grad.addColorStop(0.75, '#0f766e');
+    grad.addColorStop(1, 'rgba(15, 118, 110, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 58, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = '#fef08a';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 42, 0.2, Math.PI * 1.7);
+    ctx.stroke();
+  }
+
+  const tex = configureTexture(canvas, 'clamp');
+  uiTokenCache.set(url, tex);
+
+  if (typeof Image !== 'undefined') {
+    try {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          ctx.clearRect(0, 0, size, size);
+          ctx.drawImage(img, 0, 0, size, size);
+          tex.needsUpdate = true;
+        } catch {
+          // Keep clean procedural token fallback
+        }
+      };
+      img.src = url;
+    } catch {
+      // Ignore image hydrate failures
+    }
+  }
+
+  return tex;
+}
+
+export function getOfudaStripTexture(): THREE.CanvasTexture | null {
+  const key = 'default';
+  const existing = ofudaCache.get(key);
+  if (existing) return existing;
+
+  const w = 64;
+  const h = 192;
+  const surface = createCanvasSurface(w, h);
+  if (!surface) return null;
+  const { canvas, ctx } = surface;
+
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = '#e7d7b8';
+  ctx.fillRect(6, 4, w - 12, h - 10);
+  ctx.strokeStyle = '#991b1b';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(10, 8, w - 20, h - 18);
+
+  // Sumi-e seal stamp at top & calligraphic strokes
+  ctx.fillStyle = '#b91c1c';
+  ctx.fillRect(20, 18, 24, 22);
+  ctx.strokeStyle = '#1c1917';
+  ctx.lineWidth = 4.5;
+  ctx.lineCap = 'round';
+  for (const [y0, y1] of [
+    [56, 76],
+    [88, 114],
+    [126, 152],
+  ] as const) {
+    ctx.beginPath();
+    ctx.moveTo(20, y0);
+    ctx.lineTo(44, (y0 + y1) / 2);
+    ctx.lineTo(24, y1);
+    ctx.stroke();
+  }
+
+  const tex = configureTexture(canvas, 'clamp');
+  ofudaCache.set(key, tex);
   return tex;
 }

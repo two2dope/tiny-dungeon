@@ -5,18 +5,22 @@ import { ThemeId } from '../../engine/types';
 import {
   getCourtyardFadeTexture,
   getCourtyardGroundTexture,
+  getEmberBedTexture,
   getGlowPoolTexture,
   getLacquerWoodTexture,
   getMistRingTexture,
   getPanoramaTexture,
+  getStylizedFlameTexture,
   getTabletopMatTexture,
   getWallTexture,
   getWarBannerClothTexture,
 } from './proceduralTextures';
+import { getMapBiome } from './mapBiomes';
 import { useGlbGeometry } from './glbRegistry';
 
 interface Environment360Props {
   theme: ThemeId;
+  mapId?: number;
   tileSize: number;
   cols?: number;
   rows?: number;
@@ -29,9 +33,11 @@ const BANNER_ANGLES = Array.from({ length: 8 }).map(
 const PILLAR_ANGLES = Array.from({ length: 8 }).map(
   (_, i) => (i * Math.PI) / 4 + Math.PI / 6
 );
+const FLAME_ANGLES = [0, Math.PI / 3, (Math.PI * 2) / 3] as const;
 
 export const Environment360: React.FC<Environment360Props> = ({
   theme,
+  mapId = 1,
   tileSize,
   cols = 4,
   rows = 4,
@@ -40,17 +46,38 @@ export const Environment360: React.FC<Environment360Props> = ({
   const mistLowerRef = useRef<THREE.Mesh>(null);
   const mistUpperRef = useRef<THREE.Mesh>(null);
   const flamesGroupRef = useRef<THREE.Group>(null);
+  const sparksGroupRef = useRef<THREE.Group>(null);
+  const glowPoolsRef = useRef<THREE.Group>(null);
   const bannersGroupRef = useRef<THREE.Group>(null);
 
-  const panoramaTexture = useMemo(() => getPanoramaTexture(theme), [theme]);
-  const tabletopTexture = useMemo(() => getTabletopMatTexture(theme), [theme]);
-  const courtyardGroundTexture = useMemo(() => getCourtyardGroundTexture(theme), [theme]);
-  const courtyardFadeTexture = useMemo(() => getCourtyardFadeTexture(theme), [theme]);
-  const lacquerTexture = useMemo(() => getLacquerWoodTexture(theme), [theme]);
-  const wallTexture = useMemo(() => getWallTexture(theme), [theme]);
-  const mistTexture = useMemo(() => getMistRingTexture(theme), [theme]);
-  const glowPoolTexture = useMemo(() => getGlowPoolTexture(theme), [theme]);
-  const warBannerTexture = useMemo(() => getWarBannerClothTexture(theme), [theme]);
+  const biome = getMapBiome(theme, mapId);
+
+  const panoramaTexture = useMemo(() => getPanoramaTexture(theme, mapId), [theme, mapId]);
+  const tabletopTexture = useMemo(() => getTabletopMatTexture(theme, mapId), [theme, mapId]);
+  const courtyardGroundTexture = useMemo(
+    () => getCourtyardGroundTexture(theme, mapId),
+    [theme, mapId]
+  );
+  const courtyardFadeTexture = useMemo(
+    () => getCourtyardFadeTexture(theme, mapId),
+    [theme, mapId]
+  );
+  const lacquerTexture = useMemo(() => getLacquerWoodTexture(theme, mapId), [theme, mapId]);
+  const wallTexture = useMemo(() => getWallTexture(theme, mapId), [theme, mapId]);
+  const mistTexture = useMemo(() => getMistRingTexture(theme, mapId), [theme, mapId]);
+  const glowPoolTexture = useMemo(() => getGlowPoolTexture(theme, mapId), [theme, mapId]);
+  const warBannerTexture = useMemo(
+    () => getWarBannerClothTexture(theme, mapId),
+    [theme, mapId]
+  );
+  const flameTexture = useMemo(
+    () => getStylizedFlameTexture(biome.flameOuter, biome.flameMid, biome.flameCore),
+    [biome.flameOuter, biome.flameMid, biome.flameCore]
+  );
+  const emberBedTexture = useMemo(
+    () => getEmberBedTexture(biome.flameOuter, biome.flameCore),
+    [biome.flameOuter, biome.flameCore]
+  );
 
   const toriiGeom = useGlbGeometry('torii-gate');
   const lanternGeom = useGlbGeometry('lantern-pedestal');
@@ -59,7 +86,6 @@ export const Environment360: React.FC<Environment360Props> = ({
   const centerX = ((cols - 1) / 2) * tileSize;
   const centerZ = ((rows - 1) / 2) * tileSize;
 
-  // Exact per-axis & diagonal clearance for 4x4, 5x5, 6x5, and 6x6 boards
   const halfX = (cols * tileSize) / 2;
   const halfZ = (rows * tileSize) / 2;
   const cornerDist = Math.hypot(halfX, halfZ);
@@ -117,10 +143,36 @@ export const Environment360: React.FC<Environment360Props> = ({
     }
 
     if (flamesGroupRef.current) {
-      flamesGroupRef.current.children.forEach((brazier, idx) => {
-        const flicker =
-          0.92 + Math.sin(t * 7.5 + idx * 1.9) * 0.11 + Math.cos(t * 11.2 + idx) * 0.06;
-        brazier.scale.set(0.95 + (flicker - 1) * 0.4, flicker, 0.95 + (flicker - 1) * 0.4);
+      flamesGroupRef.current.children.forEach((brazierFlame, idx) => {
+        const flickerY =
+          0.92 + Math.sin(t * 7.2 + idx * 1.9) * 0.12 + Math.cos(t * 11.4 + idx) * 0.06;
+        const flickerW = 0.96 + Math.cos(t * 6.4 + idx * 1.3) * 0.07;
+        brazierFlame.scale.set(flickerW, flickerY, flickerW);
+        brazierFlame.rotation.z = Math.sin(t * 4.5 + idx) * 0.05;
+      });
+    }
+
+    if (glowPoolsRef.current) {
+      glowPoolsRef.current.children.forEach((pool, idx) => {
+        const pulse = 1 + Math.sin(t * 5.8 + idx * 1.7) * 0.07;
+        pool.scale.set(pulse, pulse, 1);
+      });
+    }
+
+    if (sparksGroupRef.current) {
+      sparksGroupRef.current.children.forEach((brazierSparks, bIdx) => {
+        brazierSparks.children.forEach((spark, sIdx) => {
+          const cycle = (t * 0.58 + bIdx * 0.27 + sIdx * 0.25) % 1;
+          const angle = t * 1.8 + sIdx * ((Math.PI * 2) / 4) + bIdx;
+          const radius = 0.12 + cycle * 0.22;
+          spark.position.set(
+            Math.cos(angle) * radius,
+            cycle * 1.05,
+            Math.sin(angle) * radius
+          );
+          const s = Math.max(0.05, (1 - cycle) * 1.1);
+          spark.scale.setScalar(s);
+        });
       });
     }
 
@@ -131,15 +183,14 @@ export const Environment360: React.FC<Environment360Props> = ({
     }
   });
 
-  const gateColor = isSengoku ? '#d95341' : '#6374b5';
-  const gateEmissive = isSengoku ? '#42100a' : '#1e1b4b';
-  const stoneColor = isSengoku ? '#5c5047' : '#334155';
-  const capTimberColor = isSengoku ? '#2b1c15' : '#1e2538';
-  const bambooColor = isSengoku ? '#7d6945' : '#475569';
-  const flameOuterColor = isSengoku ? '#ea580c' : '#0284c7';
-  const flameMidColor = isSengoku ? '#f59e0b' : '#38bdf8';
-  const flameCoreColor = isSengoku ? '#fef08a' : '#e0f2fe';
-  const lanternGlowColor = isSengoku ? '#ffbe66' : '#7dd3fc';
+  const gateColor = biome.gateColor;
+  const gateEmissive = biome.gateEmissive;
+  const stoneColor = biome.stoneColor;
+  const capTimberColor = biome.capTimberColor;
+  const bambooColor = biome.bambooColor;
+  const flameOuterColor = biome.flameOuter;
+  const flameCoreColor = biome.flameCore;
+  const lanternGlowColor = biome.lanternGlow;
 
   return (
     <group position={[centerX, 0, centerZ]}>
@@ -148,7 +199,7 @@ export const Environment360: React.FC<Environment360Props> = ({
         <sphereGeometry args={[Math.max(48, groundRadius + 8), 48, 32]} />
         <meshBasicMaterial
           map={panoramaTexture ?? undefined}
-          color={panoramaTexture ? '#ffffff' : isSengoku ? '#141822' : '#0f172a'}
+          color={panoramaTexture ? '#ffffff' : biome.clearColor}
           side={THREE.BackSide}
           depthWrite={false}
         />
@@ -161,9 +212,9 @@ export const Environment360: React.FC<Environment360Props> = ({
           map={courtyardGroundTexture ?? undefined}
           bumpMap={courtyardGroundTexture ?? undefined}
           bumpScale={0.14}
-          roughness={0.88}
-          metalness={0.08}
-          color={isSengoku ? '#c7c2be' : '#94a3b8'}
+          roughness={biome.motif === 'water' ? 0.56 : 0.88}
+          metalness={biome.motif === 'water' ? 0.18 : 0.08}
+          color={isSengoku ? '#d4cec8' : '#94a3b8'}
         />
       </mesh>
 
@@ -174,7 +225,7 @@ export const Environment360: React.FC<Environment360Props> = ({
           map={courtyardFadeTexture ?? undefined}
           transparent
           depthWrite={false}
-          color={courtyardFadeTexture ? '#ffffff' : isSengoku ? '#141822' : '#0f172a'}
+          color={courtyardFadeTexture ? '#ffffff' : biome.clearColor}
         />
       </mesh>
 
@@ -194,9 +245,9 @@ export const Environment360: React.FC<Environment360Props> = ({
         <mesh position={[0, 0.114, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <ringGeometry args={[platformRadius - 1.15, platformRadius - 1.0, 48]} />
           <meshBasicMaterial
-            color={isSengoku ? '#8a6c44' : '#475569'}
+            color={`rgb(${biome.daisCrestRgb})`}
             transparent
-            opacity={0.38}
+            opacity={0.42}
           />
         </mesh>
       </group>
@@ -212,7 +263,7 @@ export const Environment360: React.FC<Environment360Props> = ({
         <meshBasicMaterial
           map={mistTexture ?? undefined}
           transparent
-          opacity={0.42}
+          opacity={0.44}
           depthWrite={false}
         />
       </mesh>
@@ -226,12 +277,12 @@ export const Environment360: React.FC<Environment360Props> = ({
         <meshBasicMaterial
           map={mistTexture ?? undefined}
           transparent
-          opacity={0.26}
+          opacity={0.28}
           depthWrite={false}
         />
       </mesh>
 
-      {/* 4 Cardinal Textured 3D Torii Gateways (per-axis clearance) */}
+      {/* 4 Cardinal Textured 3D Torii Gateways */}
       {cardinalGates.map(([gx, gz], idx) => {
         const rotY = Math.atan2(-gx, -gz);
         return (
@@ -269,7 +320,7 @@ export const Environment360: React.FC<Environment360Props> = ({
                     bumpMap={lacquerTexture ?? undefined}
                     bumpScale={0.06}
                     emissive={gateEmissive}
-                    emissiveIntensity={0.22}
+                    emissiveIntensity={0.24}
                     metalness={0.2}
                     roughness={0.62}
                   />
@@ -307,53 +358,123 @@ export const Environment360: React.FC<Environment360Props> = ({
         );
       })}
 
-      {/* 4 Blazing Diagonal Corner Fire Braziers + Ground Light Pools */}
+      {/* Pulsing Textured Firelight Pools beneath the 4 Braziers */}
+      <group ref={glowPoolsRef}>
+        {diagonalBraziers.map(([bx, bz], idx) => (
+          <mesh
+            key={`brazier-glow-${idx}`}
+            position={[bx, -0.098, bz]}
+            rotation={[-Math.PI / 2, 0, 0]}
+            renderOrder={3}
+          >
+            <planeGeometry args={[3.9, 3.9]} />
+            <meshBasicMaterial
+              map={glowPoolTexture ?? undefined}
+              transparent
+              blending={THREE.AdditiveBlending}
+              depthWrite={false}
+            />
+          </mesh>
+        ))}
+      </group>
+
+      {/* 4 Sculpted Iron Cauldron Tripod Braziers + Glowing Ember Bed */}
       <group>
         {diagonalBraziers.map(([bx, bz], idx) => (
           <group key={`brazier-base-${idx}`} position={[bx, 0, bz]}>
-            <mesh position={[0, -0.098, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={3}>
-              <planeGeometry args={[3.4, 3.4]} />
-              <meshBasicMaterial
-                map={glowPoolTexture ?? undefined}
-                transparent
-                blending={THREE.AdditiveBlending}
-                depthWrite={false}
-              />
-            </mesh>
-            <mesh position={[0, 0.14, 0]} castShadow receiveShadow>
-              <cylinderGeometry args={[0.3, 0.42, 0.52, 8]} />
+            {/* Carved Octagonal Stone Pedestal */}
+            <mesh position={[0, -0.04, 0]} castShadow receiveShadow>
+              <cylinderGeometry args={[0.46, 0.54, 0.16, 8]} />
               <meshStandardMaterial
                 color={stoneColor}
                 map={wallTexture ?? undefined}
                 bumpMap={wallTexture ?? undefined}
                 bumpScale={0.05}
-                roughness={0.8}
+                roughness={0.82}
               />
             </mesh>
-            <mesh position={[0, 0.45, 0]} castShadow>
-              <cylinderGeometry args={[0.42, 0.28, 0.18, 8]} />
-              <meshStandardMaterial color="#1c1917" roughness={0.5} metalness={0.6} />
+
+            {/* 3 Forged-Iron Tripod Legs */}
+            {[0, (Math.PI * 2) / 3, (Math.PI * 4) / 3].map((ang, lIdx) => (
+              <mesh
+                key={`leg-${lIdx}`}
+                position={[Math.cos(ang) * 0.26, 0.18, Math.sin(ang) * 0.26]}
+                rotation={[Math.sin(ang) * 0.25, 0, -Math.cos(ang) * 0.25]}
+                castShadow
+              >
+                <cylinderGeometry args={[0.045, 0.065, 0.36, 8]} />
+                <meshStandardMaterial color="#1e1b18" metalness={0.68} roughness={0.42} />
+              </mesh>
+            ))}
+
+            {/* Hammered-Iron Cauldron Bowl */}
+            <mesh position={[0, 0.38, 0]} castShadow receiveShadow>
+              <cylinderGeometry args={[0.45, 0.24, 0.24, 12]} />
+              <meshStandardMaterial color="#1f1b1a" metalness={0.65} roughness={0.44} />
+            </mesh>
+
+            {/* Burnished Brass Cauldron Collar Ring */}
+            <mesh position={[0, 0.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <torusGeometry args={[0.44, 0.032, 8, 18]} />
+              <meshStandardMaterial color="#92400e" metalness={0.7} roughness={0.34} />
+            </mesh>
+
+            {/* Glowing Charcoal & Magma Ember Bed Inside Bowl */}
+            <mesh position={[0, 0.485, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[0.4, 16]} />
+              {emberBedTexture ? (
+                <meshBasicMaterial map={emberBedTexture} />
+              ) : (
+                <meshBasicMaterial color={flameOuterColor} />
+              )}
             </mesh>
           </group>
         ))}
       </group>
 
-      {/* Animated Flickering Fire Cones for the 4 Braziers */}
+      {/* Painterly Crossed-Quad Flickering Flame Sprites (zero triangle cones) */}
       <group ref={flamesGroupRef}>
         {diagonalBraziers.map(([bx, bz], idx) => (
-          <group key={`brazier-flame-${idx}`} position={[bx, 0.54, bz]}>
-            <mesh position={[0, 0.22, 0]}>
-              <coneGeometry args={[0.28, 0.62, 7]} />
-              <meshBasicMaterial color={flameOuterColor} transparent opacity={0.86} />
-            </mesh>
-            <mesh position={[0, 0.2, 0]}>
-              <coneGeometry args={[0.19, 0.5, 7]} />
-              <meshBasicMaterial color={flameMidColor} transparent opacity={0.92} />
-            </mesh>
-            <mesh position={[0, 0.15, 0]}>
-              <coneGeometry args={[0.1, 0.34, 6]} />
-              <meshBasicMaterial color={flameCoreColor} />
-            </mesh>
+          <group key={`brazier-flame-${idx}`} position={[bx, 0.48, bz]}>
+            {FLAME_ANGLES.map((ang, fIdx) => (
+              <mesh
+                key={`flame-plane-${fIdx}`}
+                position={[0, 0.44, 0]}
+                rotation={[0, ang, 0]}
+              >
+                <planeGeometry args={[0.84, 0.98]} />
+                {flameTexture ? (
+                  <meshBasicMaterial
+                    map={flameTexture}
+                    transparent
+                    blending={THREE.AdditiveBlending}
+                    depthWrite={false}
+                    side={THREE.DoubleSide}
+                  />
+                ) : (
+                  <meshBasicMaterial
+                    color={flameOuterColor}
+                    transparent
+                    opacity={0.72}
+                    side={THREE.DoubleSide}
+                  />
+                )}
+              </mesh>
+            ))}
+          </group>
+        ))}
+      </group>
+
+      {/* Rising Orbiting Ember Sparks above the 4 Braziers */}
+      <group ref={sparksGroupRef}>
+        {diagonalBraziers.map(([bx, bz], bIdx) => (
+          <group key={`brazier-sparks-${bIdx}`} position={[bx, 0.56, bz]}>
+            {Array.from({ length: 4 }).map((_, sIdx) => (
+              <mesh key={`spark-${sIdx}`}>
+                <octahedronGeometry args={[0.042, 0]} />
+                <meshBasicMaterial color={flameCoreColor} />
+              </mesh>
+            ))}
           </group>
         ))}
       </group>
@@ -371,7 +492,6 @@ export const Environment360: React.FC<Environment360Props> = ({
             />
           </mesh>
 
-          {/* Stepped stone plinth */}
           <mesh position={[0, -0.02, 0]} castShadow receiveShadow>
             <boxGeometry args={[0.62, 0.18, 0.62]} />
             <meshStandardMaterial
@@ -383,7 +503,6 @@ export const Environment360: React.FC<Environment360Props> = ({
             />
           </mesh>
 
-          {/* Sculpted stone column / GLB shaft */}
           {lanternGeom ? (
             <mesh position={[0, 0.42, 0]} scale={1.15} geometry={lanternGeom} castShadow>
               <meshStandardMaterial
@@ -405,7 +524,6 @@ export const Environment360: React.FC<Environment360Props> = ({
             </mesh>
           )}
 
-          {/* Glowing firebox chamber + dark ink corner struts */}
           <mesh position={[0, 0.86, 0]}>
             <boxGeometry args={[0.28, 0.32, 0.28]} />
             <meshBasicMaterial color={lanternGlowColor} />
@@ -422,7 +540,6 @@ export const Environment360: React.FC<Environment360Props> = ({
             </mesh>
           ))}
 
-          {/* Pagoda 4-sided stone roof + finial */}
           <mesh position={[0, 1.13, 0]} rotation={[0, Math.PI / 4, 0]} castShadow>
             <coneGeometry args={[0.48, 0.24, 4]} />
             <meshStandardMaterial
@@ -452,7 +569,6 @@ export const Environment360: React.FC<Environment360Props> = ({
               position={[wx, -0.34, wz]}
               rotation={[0, rotY, 0]}
             >
-              {/* Crossed timber ground stand */}
               <mesh position={[0, 0.05, 0]} castShadow receiveShadow>
                 <boxGeometry args={[0.88, 0.1, 0.14]} />
                 <meshStandardMaterial
@@ -469,7 +585,6 @@ export const Environment360: React.FC<Environment360Props> = ({
                   roughness={0.82}
                 />
               </mesh>
-              {/* Bamboo vertical mast & horizontal top rod */}
               <mesh position={[0, 1.12, 0]} castShadow>
                 <cylinderGeometry args={[0.045, 0.055, 2.25, 8]} />
                 <meshStandardMaterial color={bambooColor} roughness={0.76} />
@@ -478,12 +593,11 @@ export const Environment360: React.FC<Environment360Props> = ({
                 <cylinderGeometry args={[0.032, 0.032, 1.0, 8]} />
                 <meshStandardMaterial color={bambooColor} roughness={0.76} />
               </mesh>
-              {/* Hanging double-sided cloth strip (child pivot animated by useFrame) */}
               <mesh position={[0.42, 1.28, 0]}>
                 <planeGeometry args={[0.92, 1.72]} />
                 <meshBasicMaterial
                   map={warBannerTexture ?? undefined}
-                  color={warBannerTexture ? '#ffffff' : isSengoku ? '#991b1b' : '#334155'}
+                  color={warBannerTexture ? '#ffffff' : biome.bannerRight}
                   transparent
                   alphaTest={0.12}
                   side={THREE.DoubleSide}

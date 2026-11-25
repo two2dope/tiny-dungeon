@@ -57,11 +57,11 @@ const HeroPortraitAvatar: React.FC<HeroPortraitAvatarProps> = ({
   const ringBorder = isSengoku ? 'border-amber-500/85' : 'border-sky-400/70';
 
   if (srcStage === 'crest') {
-    return <HeroCrestSvg classType={classType} className="w-9 h-9" />;
+    return <HeroCrestSvg classType={classType} className="w-12 h-12" />;
   }
 
   return (
-    <div className="relative w-9 h-9 shrink-0">
+    <div className="relative w-12 h-12 shrink-0">
       <img
         src={activeSrc}
         alt={`Retrato de ${name}`}
@@ -71,10 +71,10 @@ const HeroPortraitAvatar: React.FC<HeroPortraitAvatarProps> = ({
             prev === 'primary' && portraitUrl !== fallbackUrl ? 'secondary' : 'crest'
           )
         }
-        className={`w-9 h-9 rounded-md border-2 object-cover shadow-md bg-stone-950 ${ringBorder}`}
+        className={`w-12 h-12 rounded-md border-2 object-cover shadow-md bg-stone-950 ${ringBorder}`}
       />
       <div className="absolute -bottom-1 -right-1 rounded-full bg-stone-950/95 p-0.5 shadow border border-amber-700/60">
-        <HeroCrestSvg classType={classType} className="w-3 h-3" />
+        <HeroCrestSvg classType={classType} className="w-3.5 h-3.5" />
       </div>
     </div>
   );
@@ -130,12 +130,12 @@ const RecipeSlotBadge: React.FC<{ slot: RelicRecipeSlot; filled: boolean }> = ({
       title={`Casa: ${slot.color === 'white' ? 'Branco' : slot.color === 'black' ? 'Preto' : 'Branco/Preto'}${
         slot.symbol ? ` (${slot.symbol})` : ''
       }`}
-      className={`relative w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+      className={`relative w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 ${
         filled ? 'border-emerald-400 ring-1 ring-emerald-400/70' : 'border-amber-700/70'
       }`}
     >
       {slot.symbol && !filled && (
-        <DieSymbolSvg symbol={slot.symbol} className="w-3 h-3" />
+        <DieSymbolSvg symbol={slot.symbol} className="w-2.5 h-2.5" />
       )}
       {filled && (
         <span className="absolute inset-0 rounded bg-emerald-900/85 flex items-center justify-center">
@@ -144,6 +144,17 @@ const RecipeSlotBadge: React.FC<{ slot: RelicRecipeSlot; filled: boolean }> = ({
       )}
     </span>
   );
+};
+
+const SHORT_RELIC_LABEL: Record<RelicId, string> = {
+  'katana-masamune': 'Katana',
+  'selo-onmyo': 'Onmyō',
+  'amuleto-omamori': 'Omamori',
+  'gancho-kaginawa': 'Kaginawa',
+  'sandalias-waraji': 'Waraji',
+  'armadura-yoroi': 'Yoroi',
+  'cabaca-elixir': 'Elixir',
+  'espelho-yata': 'Yata',
 };
 
 const SHORT_MISSION_TITLE: Record<string, string> = {
@@ -199,6 +210,7 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
   const completedRelicsCount = RELIC_CATALOG.filter((r) =>
     isRelicCompleted(party, r.id)
   ).length;
+  const craftableRelicsCount = RELIC_CATALOG.filter((r) => canCraftRelicNow(r.id)).length;
   const gemTrackGlory = getGemTrackGlory(party.gems);
   const minionTrackGlory = getMinionTrackGlory(minionsDefeatedCount);
   const liveScore = calculateFinalGloryScore({
@@ -309,7 +321,7 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
         <div
           className={`relative flex items-center justify-center rounded-lg px-7 ${
             isSengoku
-              ? 'gui-title-banner min-h-[2.35rem] py-1'
+              ? 'gui-title-banner min-h-[2.25rem] py-1'
               : 'pb-2 border-b border-dungeon-border'
           }`}
         >
@@ -390,8 +402,8 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
           </div>
         </div>
 
-        {/* Heroes */}
-        <div className="space-y-1">
+        {/* Heroes — 2x2 Portrait Showcase Grid */}
+        <div className="grid grid-cols-2 gap-1.5">
           {heroList.map((hero) => {
             const heroState = party.heroes[hero.classType];
             const isMax = heroState.level >= heroState.maxLevel;
@@ -400,54 +412,50 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
             return (
               <div
                 key={hero.classType}
-                className={`gui-hero-card ${hero.cardClass} p-1 rounded-lg flex flex-col gap-1`}
+                className={`gui-hero-card ${hero.cardClass} p-1.5 rounded-lg flex flex-col justify-between gap-1`}
               >
-                <div className="flex items-center justify-between gap-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <HeroPortraitAvatar
-                      classType={hero.classType}
-                      name={hero.name}
-                      portraitUrl={hero.portraitUrl}
-                      fallbackUrl={hero.fallbackUrl}
-                      isSengoku={isSengoku}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-baseline gap-1.5">
-                        <h3 className="font-serif text-xs font-bold leading-tight text-amber-100 truncate">
-                          {hero.name}
-                        </h3>
-                        <span className="text-[9px] font-mono text-amber-200/80 shrink-0">
-                          Nv.{heroState.level}/{heroState.maxLevel} • {cloak === 'white' ? 'Br' : 'Pr'}
-                        </span>
-                      </div>
-                      {/* 6-segment level bar inline below name */}
-                      <div className="flex items-center gap-0.5 mt-1 w-32 sm:w-36">
-                        {Array.from({ length: heroState.maxLevel }).map((_, idx) => (
-                          <div
-                            key={idx}
-                            className={`h-1 flex-1 rounded-sm ${
-                              idx < heroState.level
-                                ? 'bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_4px_rgba(245,158,11,0.45)]'
-                                : 'bg-[#120d0a]/85 border border-amber-900/40'
-                            }`}
-                          />
-                        ))}
-                      </div>
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <HeroPortraitAvatar
+                    classType={hero.classType}
+                    name={hero.name}
+                    portraitUrl={hero.portraitUrl}
+                    fallbackUrl={hero.fallbackUrl}
+                    isSengoku={isSengoku}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-serif text-xs font-bold leading-tight text-amber-100 truncate">
+                      {hero.name}
+                    </h3>
+                    <span className="text-[9px] font-mono text-amber-200/85 block leading-tight mt-0.5 tabular-nums">
+                      Nv.{heroState.level}/{heroState.maxLevel} • {cloak === 'white' ? 'Br' : 'Pr'}
+                    </span>
+                    <div className="flex items-center gap-0.5 mt-1 w-full">
+                      {Array.from({ length: heroState.maxLevel }).map((_, idx) => (
+                        <div
+                          key={idx}
+                          className={`h-1.5 flex-1 rounded-sm ${
+                            idx < heroState.level
+                              ? 'bg-gradient-to-r from-amber-400 to-orange-500 shadow-[0_0_4px_rgba(245,158,11,0.45)]'
+                              : 'bg-[#120d0a]/85 border border-amber-900/40'
+                          }`}
+                        />
+                      ))}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      soundEngine.play('levelup');
-                      stageLevelUp(hero.classType);
-                    }}
-                    disabled={isMax || actionsRemaining === 0}
-                    className="touch-target gui-btn-crimson flex items-center gap-0.5 px-2 py-0.5 text-[10px] font-serif font-bold uppercase tracking-wide rounded disabled:opacity-55 disabled:saturate-50 disabled:pointer-events-none shrink-0"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Nível
-                  </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundEngine.play('levelup');
+                    stageLevelUp(hero.classType);
+                  }}
+                  disabled={isMax || actionsRemaining === 0}
+                  className="touch-target gui-btn-crimson w-full flex items-center justify-center gap-0.5 px-1.5 py-0.5 text-[10px] font-serif font-bold uppercase tracking-wide rounded disabled:opacity-50 disabled:saturate-50 disabled:pointer-events-none"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Nível</span>
+                </button>
               </div>
             );
           })}
@@ -562,9 +570,9 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
           </div>
         </div>
 
-        {/* Forge Workshop — 2-Column Iconic Grid (8 Relics) */}
+        {/* Forge Workshop — 4-Column Square Image-First Showcase Grid */}
         <div
-          className={`space-y-1 pt-1 border-t ${
+          className={`space-y-1.5 pt-1 border-t ${
             isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'
           }`}
         >
@@ -580,13 +588,15 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
             <span className="text-[9px] font-mono text-amber-300/85">
               {selectedDie
                 ? `Dado: ${selectedDie.color === 'white' ? 'Branco' : 'Preto'}`
-                : 'Toque p/ detalhes'}
+                : craftableRelicsCount > 0
+                  ? `${craftableRelicsCount} pronta(s)`
+                  : 'Sem dado compatível'}
             </span>
           </div>
 
           <div
             aria-label="Acervo de Relíquias Forjadas"
-            className="grid grid-cols-2 gap-1"
+            className="grid grid-cols-4 gap-1.5"
           >
             {RELIC_CATALOG.map((relic) => {
               const progress = getRelicSlotProgress(party, relic.id);
@@ -597,30 +607,51 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
               const badge = effectBadge[relic.effectKind];
 
               return (
-                <div
+                <button
                   key={relic.id}
-                  className={`rounded-md border p-1 flex flex-col justify-between gap-1 transition-all ${
+                  type="button"
+                  onClick={() => {
+                    soundEngine.play('click');
+                    setSelectedRelicId((prev) => (prev === relic.id ? null : relic.id));
+                  }}
+                  aria-expanded={isSelected}
+                  aria-label={`Detalhes de ${relic.name}: ${relic.shortBonus}`}
+                  className={`relative min-h-[5.25rem] rounded-lg border p-1 flex flex-col items-center justify-between transition-all hover:scale-[1.03] ${
                     completed
                       ? isSengoku
-                        ? 'bg-amber-950/60 border-amber-400/85'
-                        : 'bg-slate-800/85 border-sky-400/80'
-                      : isSengoku
-                        ? 'bg-[#120d0a]/85 border-amber-900/50'
-                        : 'bg-dungeon-surface border-dungeon-border'
-                  } ${isSelected ? 'ring-1 ring-amber-300' : ''}`}
+                        ? 'bg-gradient-to-b from-amber-900/55 to-amber-950/85 border-amber-400/90 shadow-[inset_0_0_10px_rgba(251,191,36,0.2)]'
+                        : 'bg-slate-800/90 border-sky-400/85'
+                      : craftable
+                        ? isSengoku
+                          ? 'bg-gradient-to-b from-[#251811] to-[#130d09] border-amber-500/75'
+                          : 'bg-slate-900 border-amber-400/70'
+                        : isSengoku
+                          ? 'bg-[#120d0a]/85 border-amber-900/50'
+                          : 'bg-dungeon-surface border-dungeon-border'
+                  } ${isSelected ? 'ring-2 ring-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.4)]' : ''}`}
                 >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSelectedRelicId((prev) => (prev === relic.id ? null : relic.id))
-                    }
-                    aria-expanded={isSelected}
-                    aria-label={`Detalhes de ${relic.name}: ${relic.shortBonus}`}
-                    className="flex items-center gap-1 min-w-0 text-left"
-                  >
+                  {/* Top corners: effect type & completion/craftable badge */}
+                  <div className="w-full flex items-center justify-between px-0.5 leading-none">
+                    <span title={badge.title} className="text-[9px] text-amber-300/90">
+                      {badge.symbol}
+                    </span>
+                    {completed ? (
+                      <span className="text-[9px] font-mono font-bold text-emerald-300">✓</span>
+                    ) : craftable ? (
+                      <span
+                        title="Pronta para forjar com um dado disponível"
+                        className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.9)]"
+                      />
+                    ) : (
+                      <span className="w-2 h-2" aria-hidden="true" />
+                    )}
+                  </div>
+
+                  {/* Heroic centered Relic Art Asset */}
+                  <div className="flex items-center justify-center flex-1 py-0.5">
                     {imgFailed ? (
                       <Sparkles
-                        className={`w-5 h-5 shrink-0 ${
+                        className={`w-10 h-10 ${
                           completed ? 'text-amber-400' : 'text-stone-500'
                         }`}
                       />
@@ -632,85 +663,107 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                         onError={() =>
                           setRelicErrorIds((prev) => ({ ...prev, [relic.id]: true }))
                         }
-                        className={`w-5 h-5 object-contain shrink-0 ${
-                          completed ? 'opacity-100 drop-shadow-sm' : 'opacity-90'
+                        className={`w-11 h-11 object-contain drop-shadow-[0_3px_5px_rgba(0,0,0,0.85)] ${
+                          completed ? 'opacity-100 scale-105' : 'opacity-95'
                         }`}
                       />
                     )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-0.5">
-                        <span className="font-serif text-[10px] font-bold truncate leading-tight">
-                          {relic.name}
-                        </span>
-                        <span title={badge.title} className="text-[9px] text-amber-300 shrink-0">
-                          {badge.symbol}
-                        </span>
-                      </div>
-                      <p className="text-[8px] font-mono opacity-80 truncate leading-tight">
-                        {relic.shortBonus}
-                      </p>
-                    </div>
-                  </button>
-
-                  <div className="flex items-center justify-between gap-1">
-                    <div className="flex items-center gap-0.5">
-                      {relic.recipe.map((slot, slotIdx) => (
-                        <RecipeSlotBadge
-                          key={slotIdx}
-                          slot={slot}
-                          filled={progress[slotIdx]}
-                        />
-                      ))}
-                    </div>
-
-                    {completed ? (
-                      <span className="text-[9px] font-mono font-bold text-emerald-300 px-1">
-                        ✓
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        disabled={!craftable}
-                        onClick={() => {
-                          soundEngine.play('sword');
-                          stageCraftRelic(relic.id);
-                        }}
-                        aria-label={`Forjar ${relic.name}`}
-                        className="gui-btn-gold px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase disabled:opacity-40 disabled:pointer-events-none"
-                      >
-                        Forjar
-                      </button>
-                    )}
                   </div>
-                </div>
+
+                  {/* Crisp 1-word Relic Name + Compact Recipe Pips */}
+                  <span className="font-serif text-[10px] font-bold leading-none text-amber-100 truncate max-w-full">
+                    {SHORT_RELIC_LABEL[relic.id]}
+                  </span>
+                  <div className="flex items-center justify-center gap-0.5 mt-0.5">
+                    {relic.recipe.map((slot, slotIdx) => (
+                      <RecipeSlotBadge
+                        key={slotIdx}
+                        slot={slot}
+                        filled={progress[slotIdx]}
+                      />
+                    ))}
+                  </div>
+                </button>
               );
             })}
           </div>
 
-          {selectedRelic && (
+          {/* Unified Forge Inspector & Forge Action Bar */}
+          {selectedRelic ? (
             <div
               role="region"
               aria-live="polite"
-              className={`px-2 py-1 rounded-md border text-[10px] leading-snug ${
+              className={`px-2 py-1.5 rounded-lg border flex items-center justify-between gap-2 text-[10px] leading-snug ${
                 isSengoku
-                  ? 'bg-[#19100b] border-amber-700/70 text-amber-100'
+                  ? 'bg-[#19100b] border-amber-600/75 text-amber-100'
                   : 'bg-slate-900 border-sky-700/60 text-slate-200'
               }`}
             >
-              <strong className="font-serif">{selectedRelic.name}: </strong>
-              <span className="opacity-90">{selectedRelic.description}</span>
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                {!relicErrorIds[selectedRelic.id] && (
+                  <img
+                    src={selectedRelic.iconUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="w-8 h-8 object-contain shrink-0 drop-shadow"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <strong className="font-serif text-[11px] text-amber-200">
+                      {selectedRelic.name}
+                    </strong>
+                    <span className="px-1 py-0.2 rounded bg-amber-950/90 border border-amber-700/60 font-mono text-[8px] text-amber-300">
+                      {selectedRelic.shortBonus}
+                    </span>
+                  </div>
+                  <p className="text-[9px] opacity-90 leading-tight mt-0.5">
+                    {selectedRelic.description}
+                  </p>
+                </div>
+              </div>
+
+              {isRelicCompleted(party, selectedRelic.id) ? (
+                <span className="px-2 py-1 rounded border border-emerald-500/60 bg-emerald-950/80 text-emerald-300 font-mono text-[9px] font-bold shrink-0">
+                  Forjada ✓
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  disabled={!canCraftRelicNow(selectedRelic.id)}
+                  onClick={() => {
+                    soundEngine.play('forge');
+                    stageCraftRelic(selectedRelic.id);
+                  }}
+                  aria-label={`Forjar ${selectedRelic.name}`}
+                  className="touch-target gui-btn-gold px-2.5 py-1.5 rounded text-[10px] font-serif font-bold uppercase tracking-wider shrink-0 disabled:opacity-40 disabled:pointer-events-none"
+                >
+                  Forjar
+                </button>
+              )}
+            </div>
+          ) : (
+            <div
+              className={`px-2 py-1 rounded-md border text-[9px] font-mono flex items-center justify-between ${
+                isSengoku
+                  ? 'bg-[#120d0a]/75 border-amber-900/45 text-amber-200/75'
+                  : 'bg-dungeon-surface border-dungeon-border text-slate-300'
+              }`}
+            >
+              <span>Toque em uma relíquia acima para inspecionar e forjar</span>
+              <span className="text-amber-300 font-bold shrink-0">{craftableRelicsCount} disp.</span>
             </div>
           )}
 
-          {/* Gems, Minions & Live Score Summary */}
+          {/* Gems, Minions & Live Score Summary — Unclipped 2-Row Card */}
           <div
-            className={`px-2 py-1 rounded-lg border flex items-center justify-between gap-2 text-[10px] font-mono tabular-nums ${
+            className={`px-2 py-1 rounded-lg border space-y-1 text-[10px] font-mono tabular-nums ${
               isSengoku
                 ? 'bg-[#120d0a]/90 border-amber-800/60 text-amber-100'
                 : 'bg-dungeon-surface border-dungeon-border text-stone-200'
             }`}
           >
-            <div className="flex items-center gap-2 min-w-0">
+            <div className="flex items-center justify-between gap-2">
               <span className="flex items-center gap-1 font-bold" title="Trilha de Gemas (marcos 3, 6, 9)">
                 <RelicThumb
                   src="/assets/ui/icon-gem-magatama.webp"
@@ -718,9 +771,9 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                   className="w-4 h-4 object-contain shrink-0"
                   fallback={<Gem className="w-3.5 h-3.5 text-cyan-500" />}
                 />
-                {party.gems} (+{gemTrackGlory})
+                Gemas: {party.gems} (+{gemTrackGlory})
               </span>
-              <span className="flex items-center gap-1 opacity-85">
+              <span className="flex items-center gap-1">
                 {GEM_MILESTONES.map((gm) => {
                   const iconSrc =
                     gm.threshold === 3
@@ -732,10 +785,10 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                     <span
                       key={gm.threshold}
                       title={gm.label}
-                      className={`px-1 py-0.5 rounded text-[8px] border flex items-center gap-0.5 ${
+                      className={`px-1.5 py-0.5 rounded text-[9px] border flex items-center gap-1 shrink-0 ${
                         claimedGemMilestones.includes(gm.threshold) || party.gems >= gm.threshold
                           ? 'bg-emerald-800/75 border-emerald-400 text-emerald-100'
-                          : 'bg-black/40 border-stone-700 text-stone-400'
+                          : 'bg-black/45 border-stone-700 text-stone-300'
                       }`}
                     >
                       <RelicThumb
@@ -752,7 +805,11 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
               </span>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div
+              className={`flex items-center justify-between gap-2 pt-1 border-t ${
+                isSengoku ? 'border-amber-900/40' : 'border-dungeon-border'
+              }`}
+            >
               <span className="flex items-center gap-1 font-bold" title="Lacaios derrotados">
                 <RelicThumb
                   src="/assets/ui/icon-oni-skull.webp"
@@ -760,10 +817,10 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                   className="w-4 h-4 object-contain shrink-0"
                   fallback={null}
                 />
-                {minionsDefeatedCount} (+{minionTrackGlory})
+                Lacaios: {minionsDefeatedCount} (+{minionTrackGlory})
               </span>
-              <span className="text-[10px] font-bold text-amber-300 border-l border-amber-800/60 pl-1.5">
-                {liveScore.netGlory} pts
+              <span className="text-[10px] font-bold text-amber-300">
+                Glória: {liveScore.netGlory} pts
               </span>
             </div>
           </div>
@@ -791,9 +848,10 @@ export const EmberLedger: React.FC<EmberLedgerProps> = ({ isOpen, onClose }) => 
                 <button
                   key={m.id}
                   type="button"
-                  onClick={() =>
-                    setExpandedMissionId((prev) => (prev === m.id ? null : m.id))
-                  }
+                  onClick={() => {
+                    soundEngine.play('click');
+                    setExpandedMissionId((prev) => (prev === m.id ? null : m.id));
+                  }}
                   aria-expanded={isExpanded}
                   aria-label={`Missão ${m.title}`}
                   className={`px-1.5 py-1 rounded border text-[9px] font-serif font-bold flex items-center justify-between gap-1 transition-all ${
