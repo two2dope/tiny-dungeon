@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23  
 **Status:** In Review (Brainstorming Phase)  
-**Target:** `c:\Users\Thomáz\Projetos\01_dev-systems\tiny-dungeon`
+**Target:** `c:\Users\thomaz\Projetos\01_dev-systems\tiny-dungeon`
 
 ---
 

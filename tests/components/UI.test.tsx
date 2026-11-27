@@ -6,6 +6,7 @@ import { EmberLedger } from '../../src/components/ui/EmberLedger';
 import { CombatLog } from '../../src/components/ui/CombatLog';
 import { BossDuelModal } from '../../src/components/ui/BossDuelModal';
 import { MilestoneRewardModal } from '../../src/components/ui/MilestoneRewardModal';
+import { soundEngine } from '../../src/audio/soundEngine';
 import { useGameStore } from '../../src/store/gameStore';
 import {
   getCourtyardFadeTexture,
@@ -174,5 +175,32 @@ describe('UI Components with Illustrated GUI Skin', () => {
     expect(getEmberBedTexture('#ea580c', '#fef08a')).toBeNull();
     expect(getUiTokenTexture('/assets/ui/token-sealed-lock.webp', 'lock')).toBeNull();
     expect(getOfudaStripTexture()).toBeNull();
+  });
+
+  it('switches across all 7 Sengoku maps and triggers map, dice, and forge detail SFX', () => {
+    const playSpy = vi.spyOn(soundEngine, 'play');
+    render(
+      <>
+        <HUD isLedgerOpen={true} onToggleLedger={() => {}} />
+        <DiceTray />
+        <EmberLedger isOpen={true} onClose={() => {}} />
+      </>
+    );
+
+    const mapSelect = screen.getByLabelText('Selecionar Mapa') as HTMLSelectElement;
+    for (const id of [1, 2, 3, 4, 5, 6, 7]) {
+      fireEvent.change(mapSelect, { target: { value: String(id) } });
+      expect(useGameStore.getState().mapId).toBe(id);
+    }
+    expect(playSpy).toHaveBeenCalledWith('map');
+
+    const dieButtons = screen.getAllByRole('button', { name: /Dado (Branco|Negro):/i });
+    expect(dieButtons).toHaveLength(6);
+    fireEvent.click(dieButtons[0]);
+    expect(playSpy).toHaveBeenCalledWith('dice');
+
+    const katanaDetailsBtn = screen.getByRole('button', { name: /Detalhes de Katana Masamune/i });
+    fireEvent.click(katanaDetailsBtn);
+    expect(playSpy).toHaveBeenCalledWith('click');
   });
 });

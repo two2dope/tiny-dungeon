@@ -5,7 +5,7 @@
 ## Pré-voo
 - Confirmar branch sincronizada com `origin/main` (`git fetch origin`) e worktree limpo.
 - Rodar testes unitários/headless (`node ./node_modules/vitest/vitest.mjs run`).
-- Rodar `python "C:\Users\Thomáz\.gemini\config\skills\game-over\scripts\check_project_surface.py" . --offline --mobile`.
+- Rodar `python "C:\Users\thomaz\.gemini\config\skills\game-over\scripts\check_project_surface.py" . --offline --mobile`.
 - Rodar `npm run build` (`tsc && vite build`) e validar zero falhas.
 
 ## Evidência

@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19, TypeScript, Vite, React Three Fiber (Three.js), `@react-three/drei`, Tailwind CSS, Zustand, Vitest, Lucide React.
 
-**Spec:** `c:\Users\Thomáz\Projetos\01_dev-systems\tiny-dungeon\docs\superpowers\specs\2026-10-23-tiny-dungeon-design.md`
+**Spec:** `c:\Users\thomaz\Projetos\01_dev-systems\tiny-dungeon\docs\superpowers\specs\2026-10-23-tiny-dungeon-design.md`
 
 ## Global Constraints
 
